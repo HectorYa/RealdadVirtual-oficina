@@ -1,0 +1,944 @@
+<title>Caso Banco Andino</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>
+/* Layout: consola SOC nocturna sobre lluvia de codigo SWIFT; explorador de escenarios lista + detalle con visual animado por escenario */
+:root{
+  --bg:#000; --panel:rgba(2,10,6,.8); --panel-2:rgba(8,26,16,.92);
+  --fg:#d6f2e2; --soft:#86b39b; --code:#38f28a; --code-dim:#1f8a52;
+  --rule:rgba(56,242,138,.2); --red:#ff5a4e; --amber:#ffc24a; --blue:#5ab8ff;
+  --display:"Big Shoulders Display","Arial Narrow",Impact,sans-serif;
+  --body:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;background:var(--bg)}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:1.05rem;line-height:1.65}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--bg)}
+#rain{position:fixed;inset:0;width:100%;height:100%;z-index:0;opacity:.5;pointer-events:none}
+.vignette{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse at 50% 35%,transparent 45%,rgba(0,0,0,.6) 100%)}
+.page{position:relative;z-index:1}
+a{color:var(--code)}
+:focus-visible{outline:2px solid var(--amber);outline-offset:3px}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.progress{position:fixed;top:env(safe-area-inset-top,0px);left:0;right:0;height:2px;z-index:40}
+.progress span{display:block;height:100%;width:0;background:var(--code);box-shadow:0 0 10px var(--code)}
+
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:rgba(0,0,0,.8);backdrop-filter:blur(6px);border-bottom:1px solid var(--rule)}
+.topbar .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:10px}
+.case-id{font-family:var(--mono);font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--soft)}
+.case-id b{color:var(--code);font-weight:600}
+.menu{display:flex;gap:2px;flex-wrap:wrap;justify-content:flex-end}
+.menu a{font-family:var(--mono);font-size:.7rem;text-decoration:none;color:var(--soft);padding:5px 8px;border-radius:3px}
+.menu a:hover,.menu a.active{color:var(--code);background:rgba(56,242,138,.08)}
+.rain-btn{font-family:var(--mono);font-size:.7rem;background:transparent;color:var(--soft);border:1px solid var(--rule);border-radius:3px;padding:5px 8px;cursor:pointer}
+.rain-btn[aria-pressed="true"]{color:var(--code);border-color:var(--code)}
+
+.kicker{font-family:var(--mono);font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--code)}
+h1{font-family:var(--display);font-weight:900;font-size:clamp(2.7rem,7vw,5.3rem);line-height:.92;text-transform:uppercase;margin:.3em 0 .25em;text-wrap:balance;text-shadow:0 0 24px rgba(56,242,138,.25)}
+h1 em{font-style:normal;color:var(--code)}
+h2{font-family:var(--display);font-weight:800;font-size:clamp(1.9rem,4vw,2.8rem);line-height:1;text-transform:uppercase;margin:.15em 0 .45em;text-wrap:balance}
+h3{font-family:var(--display);font-weight:800;font-size:1.4rem;line-height:1.05;text-transform:uppercase;margin:0;text-wrap:balance}
+.lede{font-size:1.12rem;max-width:42em;color:var(--soft)}
+.prose{max-width:70ch}
+.prose p{margin:0 0 1em}
+section.block{padding-block:60px;scroll-margin-top:60px}
+.panel-box{background:var(--panel);border:1px solid var(--rule);border-radius:6px}
+.btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:.8rem;text-decoration:none;color:#000;background:var(--code);padding:10px 14px;border-radius:3px;border:0;cursor:pointer;box-shadow:0 0 20px rgba(56,242,138,.3);transition:transform .2s}
+.btn:hover{transform:translateY(-2px)}
+.btn.ghost{background:transparent;color:var(--code);border:1px solid var(--code);box-shadow:none}
+.pill{font-family:var(--mono);font-size:.68rem;padding:3px 8px;border-radius:999px;letter-spacing:.06em;text-transform:uppercase}
+.pill.red{background:rgba(255,90,78,.15);color:var(--red)}
+.pill.green{background:rgba(56,242,138,.15);color:var(--code)}
+.tag{font-family:var(--mono);font-size:.64rem;padding:2px 6px;border-radius:3px}
+.tag.VR{background:rgba(90,184,255,.15);color:var(--blue)}
+.tag.AR{background:rgba(255,194,74,.15);color:var(--amber)}
+
+/* aparicion comun: visible en reposo */
+.rv.in{animation:rise .7s cubic-bezier(.2,.8,.2,1) both}
+@keyframes rise{from{transform:translateY(22px)}to{transform:none}}
+
+/* hero */
+.hero{padding-block:52px 30px}
+.hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center}
+.hero-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
+.console{background:rgba(0,0,0,.88);border:1px solid var(--rule);color:var(--code);font-family:var(--mono);font-size:.8rem;line-height:1.7;border-radius:4px;padding:16px 18px;min-width:0;box-shadow:0 0 40px rgba(56,242,138,.1) inset}
+.console .hdr{display:flex;justify-content:space-between;color:var(--code-dim);font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;border-bottom:1px dashed var(--rule);padding-bottom:8px;margin-bottom:10px}
+.console ol{list-style:none;margin:0;padding:0;min-height:13.6em}
+.console li{white-space:pre-wrap;word-break:break-word}
+.console .alert{color:var(--red)} .console .dim{color:var(--code-dim)}
+
+.chain-wrap{margin-top:28px;padding:18px}
+.chain-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.chain-top p{margin:0;font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--soft)}
+.switch{display:inline-flex;border:1px solid var(--code-dim);border-radius:999px;overflow:hidden;font-family:var(--mono);font-size:.72rem}
+.switch button{border:0;background:transparent;color:var(--soft);padding:7px 14px;cursor:pointer}
+.switch button[aria-pressed="true"]{background:var(--code);color:#000}
+.switch.redsel button[aria-pressed="true"]{background:var(--red);color:#fff}
+.chain{display:grid;grid-template-columns:repeat(11,minmax(0,1fr));gap:6px}
+.node{position:relative;text-align:center;font-family:var(--mono);font-size:.62rem;color:var(--soft);cursor:pointer;background:none;border:0;padding:0;line-height:1.3}
+.node .dot{display:grid;place-items:center;margin:0 auto 6px;width:36px;height:36px;border-radius:50%;border:2px solid var(--red);color:var(--red);font-weight:600;font-size:.78rem;background:#000;transition:background .4s,color .4s,border-color .4s,transform .3s,box-shadow .4s}
+.node.lit .dot{background:var(--red);color:#fff;box-shadow:0 0 14px var(--red)}
+.chain.def .node .dot{border-color:var(--code);color:var(--code)}
+.chain.def .node.lit .dot{background:var(--code);color:#000;box-shadow:0 0 14px var(--code)}
+.node::after{content:"";position:absolute;top:18px;left:calc(50% + 20px);right:calc(-50% + 20px);height:2px;background:var(--rule)}
+.node:last-child::after{display:none}
+.chain-result{margin-top:14px;font-family:var(--mono);font-size:.78rem;display:flex;gap:10px;align-items:center;flex-wrap:wrap;color:var(--soft)}
+
+/* mision */
+.mission{display:grid;grid-template-columns:1.2fr .8fr;gap:36px;align-items:start}
+.adversary{border:1px solid var(--red);border-radius:6px;padding:18px;background:rgba(40,6,4,.7);position:relative;overflow:hidden}
+.adversary::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(255,90,78,.05) 3px 4px);pointer-events:none}
+.adversary .kicker{color:var(--red)}
+.adversary h3{margin:.3em 0 .4em;color:var(--red);text-shadow:0 0 12px rgba(255,90,78,.5)}
+.adversary p{margin:0 0 .7em;font-size:.95rem}
+.adversary small{font-family:var(--mono);font-size:.68rem;color:var(--soft)}
+.steps{list-style:none;padding:0;margin:16px 0 0;display:grid;gap:10px;counter-reset:s}
+.steps li{display:grid;grid-template-columns:auto 1fr;gap:12px;padding:12px;border:1px solid var(--rule);border-radius:6px;background:var(--panel)}
+.steps li::before{counter-increment:s;content:counter(s);font-family:var(--display);font-weight:900;font-size:1.8rem;line-height:1;color:var(--code)}
+.steps b{display:block;font-family:var(--mono);font-size:.76rem;letter-spacing:.08em;text-transform:uppercase;color:var(--code)}
+
+/* linea de tiempo */
+.tl{position:relative;margin-top:26px;padding:4px 0}
+.tl-line{position:absolute;left:50%;top:0;bottom:0;width:2px;background:var(--rule);transform:translateX(-50%)}
+.tl-fill{position:absolute;left:0;top:0;width:100%;height:0;background:linear-gradient(var(--code),var(--red));box-shadow:0 0 10px var(--code)}
+.tl ol{list-style:none;margin:0;padding:0;display:grid;gap:14px}
+.tl li{display:grid;grid-template-columns:1fr 1fr;gap:56px;position:relative}
+.tl li .card{background:var(--panel);border:1px solid var(--rule);border-radius:6px;padding:12px 14px;transition:border-color .4s,box-shadow .4s}
+.tl li:nth-child(odd) .card{grid-column:1}
+.tl li:nth-child(even) .card{grid-column:2}
+.tl li::before{content:"";position:absolute;left:50%;top:18px;width:14px;height:14px;border-radius:50%;background:#000;border:2px solid var(--code);transform:translateX(-50%);z-index:1;transition:background .3s,box-shadow .3s}
+.tl li.key::before{border-color:var(--red)}
+.tl li.in::before{background:var(--code);box-shadow:0 0 0 6px rgba(56,242,138,.15),0 0 14px var(--code)}
+.tl li.key.in::before{background:var(--red);box-shadow:0 0 0 6px rgba(255,90,78,.18),0 0 14px var(--red)}
+.tl li.in .card{animation:tlIn .7s cubic-bezier(.2,.8,.2,1) both}
+.tl li:nth-child(odd).in .card{--dx:-30px}.tl li:nth-child(even).in .card{--dx:30px}
+@keyframes tlIn{from{transform:translateX(var(--dx))}to{transform:none}}
+.tl li.key.in .card{border-color:var(--red);box-shadow:0 0 22px -8px var(--red)}
+.tl time{font-family:var(--mono);font-size:.74rem;color:var(--code);font-variant-numeric:tabular-nums}
+.tl li.key time{color:var(--red)}
+.tl p{margin:.2em 0 0;font-size:.95rem}
+
+/* personajes */
+.people{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-top:20px}
+.pc{perspective:1200px;min-height:380px}
+.pc-in{position:relative;width:100%;height:100%;min-height:380px;transition:transform .8s cubic-bezier(.3,.8,.3,1);transform-style:preserve-3d}
+.pc.flip .pc-in{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border:1px solid var(--rule);border-radius:6px;background:var(--panel);padding:16px;display:flex;flex-direction:column;overflow:hidden}
+.face.back{transform:rotateY(180deg);overflow-y:auto}
+.pc.sus .face{border-color:rgba(255,90,78,.5)}
+.avatar{width:72px;height:72px;border-radius:50%;border:2px solid var(--code-dim);display:grid;place-items:center;font-family:var(--display);font-weight:900;font-size:1.8rem;color:var(--code);background:radial-gradient(circle,rgba(56,242,138,.15),transparent 70%);position:relative;overflow:hidden}
+.pc.sus .avatar{border-color:var(--red);color:var(--red);background:radial-gradient(circle,rgba(255,90,78,.15),transparent 70%)}
+.avatar::after{content:"";position:absolute;left:0;right:0;height:2px;top:-4px;background:currentColor;box-shadow:0 0 8px currentColor;opacity:.8}
+.pc.in .avatar::after{animation:avscan 2.2s ease-in-out 2}
+@keyframes avscan{0%{top:-4px}50%{top:72px}100%{top:-4px}}
+.face b.nm{font-family:var(--display);font-weight:800;font-size:1.35rem;text-transform:uppercase;line-height:1.05;margin-top:12px}
+.face .role{font-family:var(--mono);font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;color:var(--code);margin-top:4px}
+.pc.sus .face .role{color:var(--red)}
+.face .susp{display:inline-block;margin-top:8px;font-family:var(--mono);font-size:.62rem;color:var(--red);border:1px solid var(--red);padding:1px 6px;border-radius:2px;letter-spacing:.1em;width:max-content}
+.face p{margin:.6em 0 0;font-size:.92rem}
+.face .hint{margin-top:auto;font-family:var(--mono);font-size:.66rem;color:var(--soft);padding-top:10px}
+.face dl{margin:0;font-size:.86rem}
+.face dt{font-family:var(--mono);font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--code);margin-top:9px}
+.face dd{margin:2px 0 0}
+.traits{display:flex;flex-direction:column;gap:5px;margin-top:4px}
+.trait{display:grid;grid-template-columns:96px 1fr;gap:8px;align-items:center;font-family:var(--mono);font-size:.62rem;color:var(--soft)}
+.trait i{display:block;height:5px;border-radius:3px;background:rgba(56,242,138,.12);overflow:hidden}
+.trait i::after{content:"";display:block;height:100%;width:var(--v);background:var(--code);transition:width 1s ease .3s}
+.pc.sus .trait i::after{background:var(--amber)}
+.flipbtn{position:absolute;top:12px;right:12px;font-family:var(--mono);font-size:.62rem;background:transparent;color:var(--soft);border:1px solid var(--rule);border-radius:3px;padding:3px 7px;cursor:pointer;z-index:2}
+
+/* roles */
+.roles{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin-top:20px}
+.role{position:relative;padding:18px;overflow:hidden}
+.role .ico{width:54px;height:54px;border-radius:8px;border:1px solid var(--code-dim);display:grid;place-items:center;margin-bottom:12px;position:relative}
+.role .ico svg{width:30px;height:30px}
+.role.in .ico{animation:pulse 2.4s ease-in-out 2}
+@keyframes pulse{50%{box-shadow:0 0 0 8px rgba(56,242,138,.12),0 0 18px rgba(56,242,138,.4)}}
+.role h3{font-size:1.25rem}
+.role .who{font-family:var(--mono);font-size:.66rem;color:var(--code);letter-spacing:.08em;text-transform:uppercase;margin:4px 0 10px}
+.role ul{margin:0;padding-left:1.1em;font-size:.92rem}
+.role li{margin-bottom:4px}
+.role .out{margin-top:10px;font-family:var(--mono);font-size:.7rem;color:var(--soft);border-top:1px dashed var(--rule);padding-top:8px}
+.note{font-family:var(--mono);font-size:.74rem;color:var(--soft);margin-top:12px}
+
+/* arquitectura */
+.arch{margin-top:20px;padding:16px;overflow-x:auto}
+.arch svg{min-width:720px;width:100%;height:auto;display:block}
+.arch .flowline{stroke:var(--code-dim);stroke-width:1.5;fill:none}
+.arch .pulse{stroke:var(--code);stroke-width:2.5;fill:none;stroke-dasharray:8 120;animation:flow 2.6s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-128}}
+.arch rect{fill:rgba(56,242,138,.06);stroke:var(--code-dim)}
+.arch rect.core{fill:rgba(56,242,138,.14);stroke:var(--code)}
+.arch text{fill:var(--fg);font-family:var(--mono);font-size:12px}
+.arch text.t{font-weight:600;fill:var(--code);font-size:13px}
+.arch text.s{fill:var(--soft);font-size:10.5px}
+
+/* explorador de escenarios */
+.explorer{display:grid;grid-template-columns:260px minmax(0,1fr);gap:16px;margin-top:20px;align-items:start}
+.slist{display:flex;flex-direction:column;gap:6px;position:sticky;top:70px}
+.slist .filters{display:flex;gap:4px;margin-bottom:6px}
+.slist .filters button{flex:1;font-family:var(--mono);font-size:.68rem;border:1px solid var(--rule);background:transparent;color:var(--soft);padding:5px;border-radius:3px;cursor:pointer}
+.slist .filters button[aria-pressed="true"]{color:#000;background:var(--code);border-color:var(--code)}
+.sbtn{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center;text-align:left;background:var(--panel);border:1px solid var(--rule);border-radius:4px;color:var(--fg);padding:8px 10px;cursor:pointer;font-family:var(--mono);font-size:.74rem;transition:border-color .2s,background .2s,transform .2s}
+.sbtn:hover{transform:translateX(3px);border-color:var(--code-dim)}
+.sbtn[aria-selected="true"]{border-color:var(--code);background:rgba(56,242,138,.1);box-shadow:inset 3px 0 0 var(--code)}
+.sbtn .n{font-family:var(--display);font-weight:900;font-size:1.3rem;color:var(--code)}
+.detail{padding:20px clamp(16px,2.6vw,28px);min-width:0;position:relative;overflow:hidden}
+.detail.swap{animation:swapIn .5s cubic-bezier(.2,.8,.2,1)}
+@keyframes swapIn{0%{transform:translateY(14px);filter:blur(4px)}100%{transform:none;filter:none}}
+.d-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap}
+.d-num{font-family:var(--display);font-weight:900;font-size:3.6rem;line-height:.8;color:var(--code);text-shadow:0 0 18px rgba(56,242,138,.4)}
+.d-title h3{font-size:clamp(1.6rem,3.4vw,2.3rem)}
+.d-date{font-family:var(--mono);font-size:.74rem;color:var(--soft);margin-top:4px}
+.viz-wrap{margin:16px 0 6px;border:1px solid var(--rule);border-radius:6px;background:#010603;position:relative;overflow:hidden}
+.viz-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border-bottom:1px dashed var(--rule);font-family:var(--mono);font-size:.68rem;color:var(--soft);letter-spacing:.08em;text-transform:uppercase}
+.viz{display:block;width:100%;height:auto;aspect-ratio:360/150;max-width:100%}
+.viz text{font-family:var(--mono);font-size:9px;fill:var(--fg)}
+.viz .lbl{fill:var(--soft);font-size:8px;letter-spacing:.06em}
+.viz .r{fill:var(--red)} .viz .g{fill:var(--code)} .viz .a{fill:var(--amber)}
+.viz-cap{padding:8px 12px;font-family:var(--mono);font-size:.72rem;color:var(--soft);border-top:1px dashed var(--rule)}
+.viz-cap b{color:var(--fg);font-weight:500}
+.dtabs{display:flex;gap:4px;flex-wrap:wrap;margin:16px 0 12px;border-bottom:1px solid var(--rule)}
+.dtabs button{font-family:var(--mono);font-size:.72rem;background:transparent;border:0;border-bottom:2px solid transparent;color:var(--soft);padding:8px 10px;cursor:pointer;margin-bottom:-1px}
+.dtabs button[aria-selected="true"]{color:var(--code);border-bottom-color:var(--code)}
+.dpanel{animation:fadeUp .35s ease}
+@keyframes fadeUp{from{transform:translateY(8px)}to{transform:none}}
+.dpanel p{margin:0 0 .8em;max-width:70ch}
+.dpanel ul,.dpanel ol{margin:0 0 .8em;padding-left:1.2em;max-width:72ch}
+.dpanel li{margin-bottom:5px}
+.sub{font-family:var(--mono);font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--code);margin:14px 0 6px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 12px;counter-reset:f}
+.flow span{font-family:var(--mono);font-size:.72rem;border:1px solid var(--code-dim);border-radius:3px;padding:6px 9px;background:rgba(56,242,138,.05);position:relative}
+.flow span::before{counter-increment:f;content:counter(f) ". ";color:var(--code)}
+.flow em{font-style:normal;color:var(--code-dim)}
+.dpanel.on .flow span{animation:popIn .45s cubic-bezier(.3,1.5,.5,1) both;animation-delay:calc(var(--i) * 90ms)}
+@keyframes popIn{from{transform:scale(.7)}to{transform:none}}
+.req{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:.92rem;margin:0}
+.req dt{font-family:var(--mono);font-size:.7rem;color:var(--code);padding-top:2px}
+.req dd{margin:0}
+.code{font-family:var(--mono);font-size:.78rem;background:#010603;border:1px solid var(--rule);border-radius:4px;padding:10px 12px;overflow-x:auto;white-space:pre;color:var(--code);line-height:1.55}
+.chk{list-style:none;padding:0!important}
+.chk li{display:grid;grid-template-columns:16px 1fr;gap:8px}
+.chk li::before{content:"";width:10px;height:10px;border:2px solid var(--code);border-radius:2px;margin-top:6px}
+.rtab{display:grid;gap:8px}
+.rtab div{display:grid;grid-template-columns:150px 1fr;gap:12px;padding:10px;border:1px solid var(--rule);border-radius:4px;background:rgba(56,242,138,.03)}
+.rtab b{font-family:var(--mono);font-size:.72rem;color:var(--code);text-transform:uppercase;letter-spacing:.06em}
+
+/* visuales por escenario: estado de reposo legible, animacion al mostrar */
+.viz .blink{animation:blink 1.2s steps(1) infinite}
+@keyframes blink{50%{opacity:.2}}
+/* v1 correo */
+.v1 .env{animation:v1a 2.8s cubic-bezier(.5,0,.3,1) infinite}
+.def .v1 .env{animation-name:v1d}
+@keyframes v1a{0%{transform:translateX(0)}70%,100%{transform:translateX(212px)}}
+@keyframes v1d{0%{transform:translateX(0)}55%,100%{transform:translateX(112px)}}
+.v1 .shield{opacity:0;transition:opacity .4s}.def .v1 .shield{opacity:1}
+.v1 .inbox{transition:fill .4s}.v1 .inbox-hit{animation:hit 2.8s infinite}
+.def .v1 .inbox-hit{animation:none;opacity:0}
+@keyframes hit{0%,68%{opacity:0}75%,100%{opacity:1}}
+/* v2 red */
+.v2 .bug{offset-path:path("M30 110 L95 45 L160 100 L230 45 L320 80");animation:v2a 4s linear infinite}
+.def .v2 .bug{animation-name:v2d}
+@keyframes v2a{from{offset-distance:0%}to{offset-distance:100%}}
+@keyframes v2d{0%{offset-distance:0%}55%,100%{offset-distance:56%}}
+.v2 .fw{opacity:0;transition:opacity .4s}.def .v2 .fw{opacity:1}
+.v2 .swift{animation:hit 4s infinite}.def .v2 .swift{animation:none;opacity:.25}
+/* v3 rack */
+.v3 .led{animation:blink 1s steps(1) infinite}
+.v3 .alarm{opacity:0}.def .v3 .alarm{opacity:1;animation:blink 1s steps(1) infinite}
+.def .v3 .pr-x{opacity:0}
+/* v4 36 ordenes */
+.v4 .sq{transform-box:fill-box;transform-origin:center;animation:sqIn .4s ease both;animation-delay:calc(var(--i) * 45ms)}
+@keyframes sqIn{from{transform:scale(0)}to{transform:none}}
+.def .v4 .sq{fill:var(--code)!important}
+/* v5 radar */
+.v5 .sweep{transform-origin:90px 75px;animation:spin 3s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.v5 .jup{animation:blink 1.4s steps(1) infinite}
+.v5 .call{opacity:0}.def .v5 .call{opacity:1}
+.def .v5 .blip-r{fill:var(--code)}
+/* v6 respuesta */
+.v6 .mk{animation:v6a 4s cubic-bezier(.4,0,.3,1) infinite}
+.def .v6 .mk{animation-name:v6d}
+@keyframes v6a{0%{transform:translateX(0)}80%,100%{transform:translateX(232px)}}
+@keyframes v6d{0%{transform:translateX(0)}30%,100%{transform:translateX(0)}}
+.v6 .lab-d{opacity:0}.def .v6 .lab-d{opacity:1}.def .v6 .lab-a{opacity:0}
+/* v7 cctv */
+.v7 .noise{animation:noise .25s steps(2) infinite}
+@keyframes noise{50%{transform:translate(3px,-2px)}}
+.v7 .rec{opacity:0}.def .v7 .rec{opacity:1}.def .v7 .nosig{opacity:0}.def .v7 .noise{opacity:0}
+/* v8 casino */
+.v8 .coin{transform-box:fill-box;transform-origin:center;animation:flipc 1.4s linear infinite}
+@keyframes flipc{50%{transform:scaleX(.08)}}
+.v8 .stop{opacity:0}.def .v8 .stop{opacity:1}.def .v8 .after{opacity:.2}
+/* v9 ruta */
+.v9 .route{stroke-dasharray:400;stroke-dashoffset:400;animation:draw 3.6s ease forwards infinite}
+.def .v9 .route{animation-name:drawd}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes drawd{to{stroke-dashoffset:300}}
+.v9 .trace{opacity:0}.def .v9 .trace{opacity:1}
+/* v10 tablero */
+.v10 .str{stroke-dasharray:140;stroke-dashoffset:140;animation:draw 2.4s ease forwards;animation-delay:calc(var(--i) * .35s)}
+.v10 .q{animation:blink 1.4s steps(1) infinite}
+.v10 .rep{opacity:0}.def .v10 .rep{opacity:1}
+/* v11 palabra */
+.v11 .scanbar{animation:v11 2.6s ease-in-out infinite}
+@keyframes v11{0%{transform:translateX(0)}100%{transform:translateX(250px)}}
+.v11 .bad{animation:blink 1s steps(1) infinite}
+.v11 .auto{opacity:0}.def .v11 .auto{opacity:1}
+
+/* tablas y otros */
+.table-wrap{overflow-x:auto;border:1px solid var(--rule);border-radius:4px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{text-align:left;vertical-align:top;padding:10px 12px;border-bottom:1px solid var(--rule)}
+th{font-family:var(--mono);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--soft);font-weight:500;background:rgba(56,242,138,.06)}
+tr:last-child td{border-bottom:0}
+td.mono{font-family:var(--mono);font-size:.78rem;white-space:nowrap}
+.nrc-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:16px 0 12px}
+.nrc-tabs button{font-family:var(--mono);font-size:.76rem;border:1px solid var(--rule);background:transparent;color:var(--soft);padding:7px 14px;border-radius:3px;cursor:pointer}
+.nrc-tabs button[aria-selected="true"]{background:var(--code);color:#000;border-color:var(--code)}
+#nrc-body tr{animation:rowIn .4s ease both;animation-delay:calc(var(--i) * 40ms)}
+@keyframes rowIn{from{transform:translateX(-10px)}to{transform:none}}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+.checklist{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+.checklist li{display:grid;grid-template-columns:18px 1fr;gap:10px}
+.checklist li::before{content:"";width:11px;height:11px;border:2px solid var(--code);border-radius:2px;margin-top:6px}
+.rules{counter-reset:r;list-style:none;padding:0;margin:0;display:grid;gap:10px}
+.rules li{padding:12px 14px 12px 50px;border:1px solid var(--rule);border-radius:6px;position:relative;background:var(--panel)}
+.rules li::before{counter-increment:r;content:counter(r);position:absolute;left:14px;top:9px;font-family:var(--display);font-weight:900;font-size:1.5rem;color:var(--red)}
+.rubric td:nth-child(2){font-family:var(--mono);text-align:center;width:70px;color:var(--code)}
+.rubric tfoot td{font-weight:600;background:rgba(56,242,138,.06)}
+.res{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:22px}
+.res h4{font-family:var(--mono);font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--code);margin:0 0 8px;font-weight:500}
+.res ul{margin:0;padding-left:1.1em;font-size:.93rem}
+.res li{margin-bottom:6px}
+footer{font-family:var(--mono);font-size:.7rem;color:var(--soft);padding-block:24px 48px;border-top:1px solid var(--rule)}
+
+@media (max-width:960px){
+  .hero-grid,.mission,.grid2,.cols{grid-template-columns:1fr}
+  .menu{display:none}
+  .chain{grid-template-columns:repeat(6,minmax(0,1fr));row-gap:14px}
+  .node::after{display:none}
+  .explorer{grid-template-columns:1fr}
+  .slist{position:static;flex-direction:row;overflow-x:auto;flex-wrap:nowrap;padding-bottom:6px}
+  .slist .filters{display:none}
+  .sbtn{flex:none;grid-template-columns:auto auto;min-width:max-content}
+  .sbtn .t{display:none}
+}
+@media (max-width:640px){
+  .tl-line{left:10px}
+  .tl li{grid-template-columns:1fr;gap:0;padding-left:30px}
+  .tl li .card{grid-column:1!important}
+  .tl li::before{left:10px}
+  .rtab div{grid-template-columns:1fr;gap:4px}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}html{scroll-behavior:auto}.v9 .route,.v10 .str{stroke-dashoffset:0}}
+</style>
+
+<canvas id="rain" aria-hidden="true"></canvas>
+<div class="vignette" aria-hidden="true"></div>
+<div class="progress" aria-hidden="true"><span id="bar"></span></div>
+
+<div class="page">
+<header class="topbar">
+  <div class="wrap">
+    <div class="case-id">ANDES-SIM · <b>Banco Andino</b></div>
+    <nav class="menu" aria-label="Secciones">
+      <a href="#mision">Misi&oacute;n</a><a href="#tiempo">Tiempo</a><a href="#personajes">Personajes</a><a href="#roles">Roles</a><a href="#arquitectura">Arquitectura</a><a href="#escenarios">Escenarios</a><a href="#equipos">Equipos</a><a href="#rubrica">R&uacute;brica</a>
+    </nav>
+    <button type="button" class="rain-btn" id="rain-btn" aria-pressed="true">C&oacute;digo</button>
+  </div>
+</header>
+
+<section class="hero wrap">
+  <div class="hero-grid">
+    <div>
+      <div class="kicker">Simulador basado en hechos reales · Bangladesh, 2016</div>
+      <h1>La transferencia <em>fantasma</em></h1>
+      <p class="lede">En 2016, el grupo Lazarus intent&oacute; robar 951 millones de d&oacute;lares a un banco central con 36 mensajes SWIFT. Ustedes recrean ese ataque en VR y AR sobre el BANCO ANDINO, encuentran cada vulnerabilidad y programan la defensa. Si cada equipo cierra su parte, esta vez el ataque fracasa.</p>
+      <div class="hero-actions">
+        <a class="btn" href="#escenarios">Explorar los 11 escenarios</a>
+        <a class="btn ghost" href="https://www.youtube.com/watch?v=RKcdTWoZyDc" target="_blank" rel="noopener">Ver el video del caso</a>
+      </div>
+    </div>
+    <div class="console" aria-label="Consola del simulador">
+      <div class="hdr"><span>ANDES-SIM · SOC Banco Andino</span><span>OCT 2026</span></div>
+      <ol id="log"></ol>
+    </div>
+  </div>
+  <div class="chain-wrap panel-box rv">
+    <div class="chain-top">
+      <p>Cadena del ataque · 11 escenarios</p>
+      <div class="switch redsel" id="chain-sw" role="group" aria-label="Modo de la cadena">
+        <button type="button" id="m-attack" aria-pressed="true">Ataque 2016</button>
+        <button type="button" id="m-defense" aria-pressed="false">Con sus defensas</button>
+      </div>
+    </div>
+    <div class="chain" id="chain"></div>
+    <div class="chain-result" id="chain-result"></div>
+  </div>
+</section>
+
+<section class="block wrap" id="mision">
+  <div class="mission">
+    <div class="rv">
+      <div class="kicker">La historia</div>
+      <h2>Lazarus vuelve al Banco Andino</h2>
+      <div class="prose">
+        <p>Octubre de 2026. El equipo de seguridad del BANCO ANDINO detecta en su red un fragmento de c&oacute;digo id&eacute;ntico al malware que vaci&oacute; las cuentas del Banco de Bangladesh en 2016. Es la firma del grupo Lazarus, el que el FBI atribuy&oacute; a Corea del Norte y que despu&eacute;s rob&oacute; cientos de millones en criptomonedas.</p>
+        <p>Inteligencia de amenazas es clara: Lazarus repite sus t&eacute;cnicas. Un correo falso, meses de espionaje silencioso, un fin de semana largo y una lista de transferencias lista para salir un jueves por la noche. El banco tiene 28 equipos de ingenieros de sistemas reci&eacute;n incorporados a su Unidad de Respuesta. Ustedes.</p>
+        <p>Su herramienta es <b>ANDES-SIM</b>, un simulador que recrea en VR y AR cada momento del ataque de 2016. Cada equipo toma un escenario, lo revive tal como ocurri&oacute;, descubre la falla que lo hizo posible y programa la defensa que lo habr&iacute;a detenido. En la presentaci&oacute;n final se activan todas las defensas juntas.</p>
+        <p>Queda una pregunta abierta: en 2016 los investigadores encontraron indicios de que alguien dentro del banco ayud&oacute; a los atacantes, pero nunca se supo qui&eacute;n. En el BANCO ANDINO hay cuatro sospechosos.</p>
+      </div>
+    </div>
+    <div class="rv">
+      <div class="adversary">
+        <div class="kicker">El adversario</div>
+        <h3>Grupo Lazarus</h3>
+        <p>Grupo de ciberdelincuentes que el FBI y el Departamento de Justicia de EE. UU. atribuyen al Estado de Corea del Norte. Se le atribuyen Sony Pictures (2014), Banco de Bangladesh (2016), WannaCry (2017), Ronin (2022) y Bybit (2025).</p>
+        <p>T&aacute;cticas: falsas ofertas de empleo, espionaje paciente, malware a medida y ataques en d&iacute;as no laborables.</p>
+        <small>El adversario es un grupo criminal, no un pueblo ni una nacionalidad.</small>
+      </div>
+      <ol class="steps">
+        <li><div><b>Revivir</b>Recrear el escenario tal como ocurri&oacute; en 2016.</div></li>
+        <li><div><b>Analizar</b>Encontrar la vulnerabilidad que aprovech&oacute; Lazarus.</div></li>
+        <li><div><b>Defender</b>Aplicar la contramedida y mostrar otro resultado.</div></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section class="block wrap" id="tiempo">
+  <div class="kicker">Hechos verificados</div>
+  <h2>L&iacute;nea de tiempo del caso real</h2>
+  <p class="prose">Fechas de la denuncia del FBI contra Park Jin Hyok (2018) y de la demanda del Banco de Bangladesh contra RCBC (2019). En el proyecto, el banco atacado es el BANCO ANDINO y la agencia receptora, Las Palmeras.</p>
+  <div class="tl" id="tl"><div class="tl-line"><div class="tl-fill" id="tl-fill"></div></div><ol id="tl-list"></ol></div>
+</section>
+
+<section class="block wrap" id="personajes">
+  <div class="kicker">Reparto del simulador · toca una ficha para ver el perfil</div>
+  <h2>Personajes</h2>
+  <p class="prose">Personajes inventados que cumplen el rol de un cargo del caso real. Todos los equipos usan los mismos datos. Cada sospechoso tiene se&ntilde;ales en contra y a favor: ninguna ficha revela al c&oacute;mplice.</p>
+  <div class="people" id="people"></div>
+</section>
+
+<section class="block wrap" id="roles">
+  <div class="kicker">Equipos de 3 o 4 estudiantes</div>
+  <h2>Roles del equipo</h2>
+  <p class="prose">Cada equipo es una c&eacute;lula de la Unidad de Respuesta. Estos son los cuatro roles; en cada escenario, la pesta&ntilde;a <b>Roles</b> dice qu&eacute; hace cada uno.</p>
+  <div class="roles" id="roles-grid"></div>
+  <p class="note">Equipos de 3 integrantes: el l&iacute;der de proyecto asume tambi&eacute;n el rol de analista de ciberseguridad y QA. Todos programan algo y todos aparecen en los commits.</p>
+</section>
+
+<section class="block wrap" id="arquitectura">
+  <div class="kicker">Base com&uacute;n para los 11 escenarios</div>
+  <h2>Arquitectura t&eacute;cnica</h2>
+  <p class="prose">Todos los equipos usan la misma estructura en Unity para que las piezas encajen en la presentaci&oacute;n final. La entrada cambia seg&uacute;n VR (mirada de Cardboard) o AR (marcador de Vuforia); el resto es igual.</p>
+  <div class="arch panel-box rv" role="img" aria-label="Diagrama: entrada VR o AR, objetos interactivos, GameManager con modo ataque o defensa, interfaz y audio, pantalla final">
+    <svg viewBox="0 0 900 230">
+      <path class="flowline" d="M170 60 H230 M170 170 H230 M380 115 H440 M600 115 H660 M770 115 H790"/>
+      <path class="flowline" d="M230 60 V115 H240 M230 170 V115"/>
+      <path class="pulse" d="M170 60 H230 V115 H380 H440 M600 115 H660 M770 115 H790"/>
+      <path class="pulse" style="animation-delay:1.3s" d="M170 170 H230 V115 H380 H440 M600 115 H660 M770 115 H790"/>
+      <rect x="20" y="30" width="150" height="60" rx="6"/><text class="t" x="34" y="54">Entrada VR</text><text class="s" x="34" y="72">CardboardReticlePointer</text>
+      <rect x="20" y="140" width="150" height="60" rx="6"/><text class="t" x="34" y="164">Entrada AR</text><text class="s" x="34" y="182">ImageTarget + OnTargetFound</text>
+      <rect x="240" y="80" width="140" height="70" rx="6"/><text class="t" x="254" y="106">Interactuables</text><text class="s" x="254" y="124">EvidenceItem</text><text class="s" x="254" y="139">DefenseControl</text>
+      <rect class="core" x="440" y="62" width="160" height="106" rx="6"/><text class="t" x="454" y="88">GameManager</text><text class="s" x="454" y="106">modo: ataque / defensa</text><text class="s" x="454" y="122">evidencias encontradas</text><text class="s" x="454" y="138">defensas aplicadas</text><text class="s" x="454" y="154">ScenarioData (ScriptableObject)</text>
+      <rect x="660" y="80" width="110" height="70" rx="6"/><text class="t" x="674" y="106">UI y audio</text><text class="s" x="674" y="124">UIManager</text><text class="s" x="674" y="139">AudioManager</text>
+      <rect x="790" y="80" width="96" height="70" rx="6"/><text class="t" x="802" y="106">Final</text><text class="s" x="802" y="124">resultado</text><text class="s" x="802" y="139">y resumen</text>
+    </svg>
+  </div>
+  <pre class="code rv">// Contrato m&iacute;nimo que todos los equipos implementan (C#)
+public enum SimMode { Ataque, Defensa }
+public class GameManager : MonoBehaviour {
+    public static GameManager I;            // instancia &uacute;nica
+    public ScenarioData data;               // textos, fechas, cifras del escenario
+    public SimMode mode = SimMode.Ataque;
+    public void RegisterEvidence(string id) // al encontrar una pista
+    public void ApplyDefense(string id)     // al activar una contramedida
+    public void EndScenario()               // muestra el resultado del modo actual
+}</pre>
+</section>
+
+<section class="block wrap" id="escenarios">
+  <div class="kicker">11 escenarios · 6 VR · 5 AR</div>
+  <h2>Explorador de escenarios</h2>
+  <p class="prose">Elige un escenario. La animaci&oacute;n muestra el ataque de 2016 y, con el interruptor, c&oacute;mo queda con la defensa aplicada. Las pesta&ntilde;as detallan la historia, la vulnerabilidad, la defensa, los requisitos funcionales, la especificaci&oacute;n t&eacute;cnica y las tareas por rol.</p>
+  <div class="explorer">
+    <div class="slist" role="tablist" aria-label="Escenarios" id="slist">
+      <div class="filters" role="group" aria-label="Filtrar">
+        <button type="button" data-f="all" aria-pressed="true">Todos</button><button type="button" data-f="VR" aria-pressed="false">VR</button><button type="button" data-f="AR" aria-pressed="false">AR</button>
+      </div>
+    </div>
+    <div class="detail panel-box" id="detail" role="tabpanel"></div>
+  </div>
+</section>
+
+<section class="block wrap" id="equipos">
+  <div class="kicker">28 equipos · 3 NRC</div>
+  <h2>Asignaci&oacute;n por NRC</h2>
+  <p class="prose">Cada NRC resuelve el caso completo con sus propios equipos. Los nombres son los de las carpetas en Drive.</p>
+  <div class="nrc-tabs" role="tablist" aria-label="NRC">
+    <button type="button" role="tab" data-n="30188" aria-selected="true">NRC 30188 · 10</button>
+    <button type="button" role="tab" data-n="30190" aria-selected="false">NRC 30190 · 11</button>
+    <button type="button" role="tab" data-n="30192" aria-selected="false">NRC 30192 · 7</button>
+  </div>
+  <div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Escenario</th><th>Tipo</th></tr></thead><tbody id="nrc-body"></tbody></table></div>
+  <p class="note" id="nrc-note"></p>
+</section>
+
+<section class="block wrap" id="requisitos">
+  <div class="grid2">
+    <div class="rv">
+      <div class="kicker">Lo m&iacute;nimo</div>
+      <h2>Requisitos generales</h2>
+      <ul class="checklist">
+        <li>Unity 6 y APK instalable en un celular Android real.</li>
+        <li><b>Modo ataque y modo defensa</b> en la misma app, con un resultado distinto en cada uno.</li>
+        <li>VR (Cardboard): portal de entrada, teletransporte por mirada, al menos 5 objetos interactivos con la ret&iacute;cula, sonido y pantalla final.</li>
+        <li>AR (Vuforia): licencia Basic, ARCore en DONT_USE u OPTIONAL, al menos 4 Image Targets de 3 estrellas o m&aacute;s, OnTargetFound y una animaci&oacute;n en C#.</li>
+        <li>Arquitectura com&uacute;n: GameManager, ScenarioData y los m&eacute;todos RegisterEvidence, ApplyDefense y EndScenario.</li>
+        <li>Repositorio en GitHub con commits de todos.</li>
+        <li>Recursos con licencia libre y cr&eacute;ditos dentro de la app.</li>
+      </ul>
+    </div>
+    <div class="rv">
+      <div class="kicker">Para entregar</div>
+      <h2>Entregables</h2>
+      <ul class="checklist">
+        <li>APK instalable.</li>
+        <li>Enlace al repositorio de GitHub.</li>
+        <li>Video de 2 a 3 minutos desde el celular, con modo ataque y modo defensa.</li>
+        <li>Ficha del proyecto (m&aacute;x. 4 p&aacute;ginas): escenario, vulnerabilidad, contramedida, conceptos aplicados, capturas, roles y cr&eacute;ditos.</li>
+        <li>Solo AR: marcadores en PDF listos para imprimir.</li>
+      </ul>
+      <p class="prose" style="margin-top:16px"><b>Presentaci&oacute;n final:</b> cada NRC presenta en orden de escenario, 10 minutos por equipo (7 de demostraci&oacute;n y 3 de an&aacute;lisis). Al final se activan todas las defensas, cada equipo propone qui&eacute;n fue el c&oacute;mplice interno y el docente revela la soluci&oacute;n.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block wrap" id="reglas">
+  <div class="kicker">Obligatorias</div>
+  <h2>Reglas &eacute;ticas y legales</h2>
+  <ol class="rules rv">
+    <li><b>Solo defensa y solo simulaci&oacute;n.</b> Los ataques existen &uacute;nicamente dentro de la app. Est&aacute; prohibido probar t&eacute;cnicas contra sistemas, redes o cuentas reales, incluidos los de la universidad. El acceso il&iacute;cito es delito seg&uacute;n la <a href="https://busquedas.elperuano.pe/normaslegales/ley-de-delitos-informaticos-ley-n-30096-1003117-1/" target="_blank" rel="noopener">Ley 30096</a>.</li>
+    <li><b>Solo datos inventados.</b> Nombres, DNI, cuentas, tarjetas y correos ficticios (Ley 29733).</li>
+    <li><b>Entidades ficticias.</b> BANCO ANDINO, Banco Corresponsal Internacional y Banco Pac&iacute;fico Insular, sin logos ni colores de entidades reales.</li>
+    <li><b>Personas ficticias.</b> Los personajes no se parecen a docentes, autoridades ni a las personas reales del caso.</li>
+    <li><b>El adversario es un grupo criminal.</b> Lazarus se presenta por sus t&aacute;cticas, sin caricaturas ni burlas hacia ning&uacute;n pueblo o nacionalidad.</li>
+    <li><b>Cr&eacute;ditos.</b> Todo recurso de terceros lleva autor y licencia, y se indica qu&eacute; herramientas de IA se usaron.</li>
+  </ol>
+  <p class="note">Incumplir cualquiera de estas reglas anula la nota del equipo.</p>
+</section>
+
+<section class="block wrap" id="rubrica">
+  <div class="kicker">Sobre 20 puntos</div>
+  <h2>R&uacute;brica</h2>
+  <p class="prose">Niveles por criterio: Logrado (100&nbsp;%), En proceso (70&nbsp;%), Inicio (40&nbsp;%), No presenta (0&nbsp;%).</p>
+  <div class="table-wrap rv">
+    <table class="rubric">
+      <thead><tr><th>Criterio</th><th>Pts</th><th>Logrado</th></tr></thead>
+      <tbody>
+        <tr><td>Funcionamiento t&eacute;cnico</td><td>4</td><td>El APK corre sin errores en un celular real y cumple los requisitos funcionales y t&eacute;cnicos de su escenario.</td></tr>
+        <tr><td>Fidelidad al caso</td><td>3</td><td>Recrea hechos, fechas y cifras de su escenario sin contradecir la l&iacute;nea de tiempo.</td></tr>
+        <tr><td>An&aacute;lisis de la vulnerabilidad</td><td>3</td><td>Explica con precisi&oacute;n t&eacute;cnica qu&eacute; falla aprovech&oacute; Lazarus y por qu&eacute; funcion&oacute;.</td></tr>
+        <tr><td>Contramedida simulada</td><td>3</td><td>El modo defensa aplica controles correctos y muestra un resultado distinto y coherente.</td></tr>
+        <tr><td>Interacci&oacute;n y experiencia</td><td>2</td><td>Se entiende sin ayuda; hay tensi&oacute;n, ritmo y recompensa.</td></tr>
+        <tr><td>Arte y sonido</td><td>2</td><td>Estilo coherente y cr&eacute;ditos completos.</td></tr>
+        <tr><td>Trabajo en equipo</td><td>1</td><td>Commits de todos y roles cumplidos seg&uacute;n la ficha.</td></tr>
+        <tr><td>Presentaci&oacute;n final</td><td>2</td><td>Demostraci&oacute;n sin fallas, en tiempo, con hip&oacute;tesis del c&oacute;mplice sustentada.</td></tr>
+      </tbody>
+      <tfoot><tr><td>Total</td><td>20</td><td></td></tr></tfoot>
+    </table>
+  </div>
+</section>
+
+<section class="block wrap" id="recursos">
+  <div class="kicker">Para investigar y construir</div>
+  <h2>Recursos</h2>
+  <div class="res rv">
+    <div><h4>El caso</h4><ul>
+      <li><a href="https://www.youtube.com/watch?v=RKcdTWoZyDc" target="_blank" rel="noopener">Video del caso (YouTube)</a></li>
+      <li><a href="https://claude.ai/artifact/14R4Y3s6bBqWJa9kPG5ici" target="_blank" rel="noopener">Transcripci&oacute;n corregida: Expediente Bangladesh</a></li>
+      <li><a href="https://nsarchive.gwu.edu/sites/default/files/documents/5736655/National-Security-Archive-Bangladesh-Bank-vs.pdf" target="_blank" rel="noopener">Demanda contra RCBC (2019)</a></li>
+      <li><a href="https://nsarchive.gwu.edu/media/18208/ocr" target="_blank" rel="noopener">Denuncia del FBI (2018)</a></li>
+      <li><a href="https://www.csoonline.com/article/3060727/bangladesh-bank-attackers-used-custom-malware-that-hijacked-swift-software.html" target="_blank" rel="noopener">C&oacute;mo funcion&oacute; el malware (CSO)</a></li>
+    </ul></div>
+    <div><h4>Herramientas</h4><ul>
+      <li><a href="https://developer.vuforia.com" target="_blank" rel="noopener">Vuforia Engine</a></li>
+      <li><a href="https://github.com/googlevr/cardboard-xr-plugin" target="_blank" rel="noopener">Cardboard XR Plugin</a></li>
+      <li><a href="https://kling.ai" target="_blank" rel="noopener">Kling AI (tr&aacute;iler)</a></li>
+      <li><a href="https://sketchfab.com" target="_blank" rel="noopener">Sketchfab</a> · <a href="https://poly.pizza" target="_blank" rel="noopener">Poly Pizza</a></li>
+    </ul></div>
+    <div><h4>Marco legal</h4><ul>
+      <li><a href="https://busquedas.elperuano.pe/normaslegales/ley-de-delitos-informaticos-ley-n-30096-1003117-1/" target="_blank" rel="noopener">Ley 30096, Delitos Inform&aacute;ticos</a></li>
+      <li><a href="https://elperuano.pe/noticia/258993-proteccion-de-datos-personales-ejecutivo-aprueba-nuevo-reglamento-de-la-ley-n-29733" target="_blank" rel="noopener">Reglamento de la Ley 29733</a></li>
+      <li><a href="https://lawphil.net/statutes/repacts/ra2017/ra_10927_2017.html" target="_blank" rel="noopener">Ley filipina de casinos RA 10927</a></li>
+    </ul></div>
+  </div>
+</section>
+
+<footer class="wrap">Basado en hechos reales: robo al Banco de Bangladesh, febrero de 2016. Banco Andino, sus trabajadores y entidades relacionadas son ficticios. Actualizado el 22 de octubre de 2026.</footer>
+</div>
+
+<script>
+(function(){
+var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function $(s, r){ return (r || document).querySelector(s); }
+function $$(s, r){ return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
+
+/* ---------- lluvia de codigo ---------- */
+var cv = $('#rain'), ctx = cv.getContext('2d');
+var glyphs = '0123456789ABCDEF:/MT103SWIFT$#{}<>'.split('');
+var fz = 15, cols = 0, drops = [], running = true, last = 0, step = reduce ? 110 : 55;
+function sizeRain(){
+  var d = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = innerWidth * d; cv.height = innerHeight * d; ctx.setTransform(d,0,0,d,0,0);
+  cols = Math.ceil(innerWidth / fz); drops = Array.from({length: cols}, function(){ return Math.random() * innerHeight / fz; });
+  ctx.fillStyle = '#000'; ctx.fillRect(0,0,innerWidth,innerHeight);
+  if(!running){ staticRain(); }
+}
+function staticRain(){
+  ctx.font = fz + 'px "IBM Plex Mono", monospace';
+  for(var x = 0; x < cols; x++){ var n = 4 + Math.floor(Math.random() * 14), y0 = Math.random() * innerHeight / fz;
+    for(var j = 0; j < n; j++){ ctx.fillStyle = j === n - 1 ? 'rgba(200,255,220,.9)' : 'rgba(56,242,138,' + (0.15 + j / n * 0.6) + ')';
+      ctx.fillText(glyphs[Math.floor(Math.random() * glyphs.length)], x * fz, (y0 + j) * fz); } }
+}
+function rain(t){
+  if(!running){ return; } requestAnimationFrame(rain);
+  if(t - last < step){ return; } last = t;
+  ctx.fillStyle = 'rgba(0,0,0,.09)'; ctx.fillRect(0,0,innerWidth,innerHeight);
+  ctx.font = fz + 'px "IBM Plex Mono", monospace';
+  for(var i = 0; i < cols; i++){ var y = drops[i] * fz;
+    ctx.fillStyle = Math.random() > .975 ? '#ff5a4e' : (Math.random() > .9 ? '#c8ffdc' : '#38f28a');
+    ctx.fillText(glyphs[Math.floor(Math.random() * glyphs.length)], i * fz, y);
+    if(y > innerHeight && Math.random() > .975){ drops[i] = 0; } drops[i] += 1; }
+}
+sizeRain(); addEventListener('resize', sizeRain);
+if(running){ requestAnimationFrame(rain); }
+var rb = $('#rain-btn'); rb.setAttribute('aria-pressed', running);
+rb.addEventListener('click', function(){ running = !running; rb.setAttribute('aria-pressed', running);
+  if(running){ requestAnimationFrame(rain); } else { ctx.fillStyle = '#000'; ctx.fillRect(0,0,innerWidth,innerHeight); staticRain(); } });
+
+/* ---------- datos ---------- */
+var S = [
+{n:1,t:'VR',name:'Oficina de pagos',date:'29 ene 2015 · enero 2016',
+ story:'Dieciséis trabajadores del BANCO ANDINO reciben un correo amable de «Rasel Ahlam», que busca empleo y adjunta un enlace a su currículum. Carla Mendoza está entre ellos. Al menos tres computadoras intentan abrir el archivo; una basta para abrir una puerta trasera en la red.',
+ vuln:['Phishing con un falso currículum que nadie reportó','Sin filtro que analice enlaces y descargas','Credenciales anotadas a la vista'],
+ def:['Filtro de correo con análisis de enlaces y archivos en sandbox','Capacitación y botón «Reportar phishing»','Gestor de contraseñas y doble factor (MFA)'],
+ cap:['<b>Ataque:</b> el correo llega a la bandeja y se abre.','<b>Defensa:</b> el filtro lo envía a cuarentena antes de llegar.'],
+ flow:['Portal de entrada','Oficina 3D','Revisar bandeja','Inspeccionar correo','Elegir: abrir o reportar','Resultado'],
+ rf:['La escena muestra 3 puestos de trabajo con monitores interactivos.','El jugador abre el correo de «Rasel Ahlam» mirando el monitor y tocando la pantalla.','Al inspeccionar, se resaltan 3 señales de phishing (remitente, enlace, urgencia).','Modo ataque: abrir el enlace muestra la infección propagándose. Modo defensa: el correo aparece en cuarentena.','Se registran como evidencia el correo, las credenciales anotadas y el registro de accesos.'],
+ ac:['El jugador encuentra las 3 señales de phishing en menos de 3 minutos.','El modo defensa evita la infección y lo muestra en la pantalla final.'],
+ tech:{scene:'Escena «Oficina_Pagos» basada en HelloCardboard; Player con CardboardReticlePointer.',objs:['Monitor_01..03 (capa Interactive) con Canvas en World Space','PostIt_Credenciales (EvidenceItem)','Portal_Entrada y 3 TeleportPoint','Panel_Correo (UI con remitente, asunto y enlace)'],scripts:['GazeInteractable: OnPointerEnter / OnPointerExit / OnPointerClick','PhishingInspector: marca las señales encontradas','MailQuarantine: en Defensa reemplaza la bandeja','TeleportPoint: mueve al Player al mirar y tocar'],data:'ScenarioData con textos del correo, fecha (29/01/2015) y 16 destinatarios.'},
+ roles:{pm:'Escribe el guion del correo y de las voces; coordina pruebas de usabilidad con otros equipos.',dev:'Programa la interacción por mirada, el inspector de phishing y el cambio de modo.',art:'Modela la oficina, los monitores y la interfaz del correo; agrega sonido de oficina nocturna.',sec:'Investiga señales reales de phishing y define las 3 que el jugador debe encontrar; valida la contramedida.'},
+ play:'Revisa el correo y decide. En modo defensa, el correo cae en cuarentena.'},
+{n:2,t:'AR',name:'Anatomía del malware',date:'feb 2015 · 29 ene 2016',
+ story:'Durante un año el programa espía en silencio y salta de computadora en computadora por una red plana, unida con switches de 10 dólares. El 29 de enero de 2016 llega a la terminal SWIFT y cambia 2 bytes de un archivo para poder borrar registros y alterar la impresora.',
+ vuln:['Red plana: todas las PC ven la terminal SWIFT','Sin antivirus avanzado (EDR) ni monitoreo','Nadie vigila cambios en archivos del sistema'],
+ def:['Segmentar la red y aislar SWIFT con firewall interno','EDR y lista blanca de aplicaciones','Monitoreo de integridad de archivos (FIM)'],
+ cap:['<b>Ataque:</b> el malware salta de nodo en nodo hasta SWIFT.','<b>Defensa:</b> un firewall interno lo detiene a mitad de la red.'],
+ flow:['Escanear diagrama de red','Red 3D sobre el papel','Ver recorrido del malware','Colocar controles','Reproducir ataque','Resultado'],
+ rf:['Al escanear el diagrama impreso aparece una red 3D con 6 nodos y la terminal SWIFT.','Una animación muestra el malware avanzando por la red durante «un año» acelerado.','El jugador arrastra hasta 3 controles (firewall, EDR, FIM) sobre la red.','Modo defensa: el malware se detiene en el primer control correcto.','Se explica en un panel el cambio de 2 bytes y qué permitía.'],
+ ac:['La red aparece estable sobre el marcador en menos de 2 segundos.','Al menos un control colocado en el lugar correcto detiene el malware.'],
+ tech:{scene:'Escena «Malware_AR» con ARCamera de Vuforia e ImageTarget «Diagrama_Red».',objs:['Nodo_PC_01..05 y Nodo_SWIFT (prefab con LineRenderer)','Malware (esfera roja con partículas)','Control_Firewall, Control_EDR, Control_FIM (prefabs arrastrables)'],scripts:['TargetHandler: activa la escena en OnTargetFound y la pausa en OnTargetLost','MalwarePath: mueve el malware por waypoints con corrutina','DragOnPlane: arrastre táctil sobre el marcador','DefenseCheck: compara la posición del control con el nodo protegido'],data:'Waypoints y textos en ScenarioData; fechas 29/01/2015 a 29/01/2016.'},
+ roles:{pm:'Define el guion del recorrido y el texto del cambio de 2 bytes.',dev:'Programa el recorrido del malware, el arrastre táctil y la validación de controles.',art:'Diseña el diagrama impreso (3 estrellas o más) y los nodos 3D.',sec:'Explica segmentación, EDR y FIM; verifica que la defensa sea técnicamente correcta.'},
+ play:'Escanea el diagrama y coloca controles. En modo defensa, el malware queda bloqueado.'},
+{n:3,t:'VR',name:'Centro de datos',date:'Jue 4 feb 2016 · 8:36 p.m. a 3:59 a.m.',
+ story:'Con el banco cerrado, alguien inicia sesión en la terminal SWIFT a las 8:36 p.m. En hora y media salen 36 órdenes por 951 millones de dólares. La impresora de confirmaciones está apagada y en la base de datos quedan huecos. A las 3:59 a.m. el intruso sale.',
+ vuln:['Inicio de sesión fuera de horario sin alerta','Credenciales robadas sin doble factor','Registros locales que el atacante pudo borrar'],
+ def:['Alerta y bloqueo de accesos fuera de horario','MFA y control de cuentas privilegiadas','Registros centralizados e inalterables (SIEM)'],
+ cap:['<b>Ataque:</b> la sesión de las 8:36 p.m. pasa inadvertida y la impresora queda apagada.','<b>Defensa:</b> la sesión dispara una alarma y se bloquea.'],
+ flow:['Portal al centro de datos','Recorrer pasillo de racks','Terminal SWIFT','Revisar logs','Activar controles','Resultado'],
+ rf:['La escena tiene un pasillo con 4 racks, la terminal SWIFT, un switch y la impresora.','Un reloj en pantalla avanza de 20:36 a 03:59 en modo ataque.','El jugador revisa un log con huecos (registros borrados) y lo marca como evidencia.','En modo defensa, el jugador activa MFA, alerta fuera de horario y SIEM desde un panel.','La pantalla final compara las órdenes enviadas en cada modo (36 frente a 0).'],
+ ac:['El jugador recorre la sala sin mareo (teletransporte, sin movimiento continuo).','La alarma se dispara al iniciar la sesión en modo defensa.'],
+ tech:{scene:'Escena «DataCenter_VR» con iluminación baja y luces parpadeantes.',objs:['Rack_01..04 con LEDs (material emisivo animado)','Terminal_SWIFT con Canvas del log','Switch_Barato y Impresora (EvidenceItem)','Panel_Controles con 3 interruptores (DefenseControl)'],scripts:['SimClock: reloj acelerado de la noche','LogViewer: muestra líneas y huecos del registro','AlarmSystem: sonido, luz roja y bloqueo en Defensa','LedBlink: parpadeo aleatorio de LEDs'],data:'Hora de inicio 20:36, salida 03:59, 36 órdenes, 951 millones.'},
+ roles:{pm:'Escribe la narración de la noche y coordina la línea de tiempo con el escenario 4.',dev:'Programa el reloj, el visor de logs, los interruptores y la alarma.',art:'Modela racks, terminal e impresora; crea la atmósfera sonora del centro de datos.',sec:'Diseña el log con huecos y explica MFA, SIEM y alertas fuera de horario.'},
+ play:'Recorre el centro de datos, revisa el log y activa los controles.'},
+{n:4,t:'AR',name:'Las 36 órdenes',date:'4 y 5 feb 2016',
+ story:'Las 36 órdenes viajan al Banco Corresponsal Internacional. Treinta y cinco son rechazadas por formato y reenviadas corregidas esa noche (una nunca se reenvía). Al final se bloquean 30 y pasan 5: cuatro a Manila y una, por 20 millones, a la «Fandation».',
+ vuln:['Sin límites por monto ni por horario','Sin doble aprobación de pagos','Beneficiarios nunca antes usados'],
+ def:['Límites por monto, horario y destino','Doble aprobación (un operador crea, otro autoriza)','Lista de beneficiarios autorizados y validación de datos'],
+ cap:['<b>Ataque:</b> 30 bloqueadas, 4 pagadas a Manila, 1 a la «Fandation», 1 no reenviada.','<b>Defensa:</b> la doble aprobación retiene las 36.'],
+ flow:['Escanear orden impresa','Ver monto, destino y estado','Clasificar la orden','Encontrar «Fandation»','Aplicar reglas','Inventario final'],
+ rf:['Cada orden impresa es un marcador; al escanearla aparece una ficha 3D con monto, destino y estado.','El jugador clasifica cada orden en bloqueada, pagada o retenida.','Debe encontrar la orden con el error de tipeo y explicar qué validación la detuvo.','En modo defensa, aplica reglas (monto, horario, beneficiario) y ve cuántas quedan retenidas.','Un inventario muestra totales: bloqueado, pagado y retenido.'],
+ ac:['Se reconocen al menos 6 órdenes distintas como marcadores.','Los totales coinciden con el caso real en modo ataque.'],
+ tech:{scene:'Escena «Ordenes_AR» con ARCamera y una base de datos de Vuforia con 6 a 8 órdenes.',objs:['ImageTarget_Orden_01..08','Ficha_Orden (prefab con TextMeshPro)','Panel_Inventario'],scripts:['OrderTarget: carga los datos de la orden al detectarla','RuleEngine: aplica límites y doble aprobación en Defensa','TypoDetector: compara el beneficiario con una lista válida','InventoryUI: suma totales por estado'],data:'Lista de órdenes en ScenarioData (JSON): monto, destino, estado real.'},
+ roles:{pm:'Diseña las órdenes impresas y el orden en que el jugador las encuentra.',dev:'Programa las fichas, el motor de reglas y el detector de errores.',art:'Diseña los marcadores con mucho detalle y la ficha 3D de cada orden.',sec:'Explica la validación de datos, la doble aprobación y los límites transaccionales.'},
+ play:'Escanea cada orden y encuentra la del error. En modo defensa, todas quedan retenidas.'},
+{n:5,t:'VR',name:'Banco Corresponsal Internacional',date:'4 al 8 feb 2016',
+ story:'En la sala de monitoreo salta una alerta: la calle de la agencia receptora se llama igual que un petrolero de una lista de sanciones. Treinta órdenes quedan congeladas, pero cinco ya pasaron. Las consultas al BANCO ANDINO no tienen respuesta: es fin de semana.',
+ vuln:['Contactos de emergencia solo en días hábiles','Sin confirmación por un canal alterno','Reglas que no frenaron las 5 primeras'],
+ def:['Contactos 24/7 para incidentes','Confirmación por llamada a un número registrado','Reglas por destino y monto inusual'],
+ cap:['<b>Ataque:</b> el radar detecta «JUPITER», pero 5 órdenes ya pasaron.','<b>Defensa:</b> una llamada de verificación detiene las 5.'],
+ flow:['Portal a la sala','Pantallas de monitoreo','Alerta «Jupiter»','Decidir bloqueos','Llamar al banco','Resultado'],
+ rf:['Tres pantallas grandes muestran órdenes entrando en tiempo real.','Una alerta parpadea al detectar la coincidencia con la lista de sanciones.','El jugador elige qué órdenes bloquear mirando y tocando cada una.','En modo ataque, el teléfono suena sin respuesta; en defensa, se completa la verificación.','La pantalla final muestra cuánto dinero se salvó en cada modo.'],
+ ac:['El jugador entiende por qué se activó la alerta (texto explicativo).','En defensa, las 5 órdenes pagadas pasan a retenidas.'],
+ tech:{scene:'Escena «Corresponsal_VR» con sala de monitoreo y pantallas curvas.',objs:['Pantalla_01..03 (Canvas con lista desplazable)','Alerta_Sanciones (luz y sonido)','Telefono (DefenseControl)'],scripts:['OrderFeed: genera la lista de órdenes con temporizador','SanctionsMatcher: compara textos con una lista','CallbackDefense: simula la llamada y cambia estados','ResultPanel: totales salvados'],data:'Montos y destinos de las órdenes; lista de sanciones ficticia con «JUPITER».'},
+ roles:{pm:'Escribe los diálogos de la llamada y el texto de la alerta.',dev:'Programa el flujo de órdenes, el comparador y la llamada.',art:'Diseña la sala, las pantallas y el sonido del teléfono.',sec:'Explica el screening de sanciones y la confirmación por canal alterno.'},
+ play:'Decide qué órdenes bloquear y verifica por teléfono.'},
+{n:6,t:'AR',name:'Respuesta a incidentes',date:'5 al 9 feb 2016',
+ story:'El viernes, Hugo Benavides ve la impresora apagada y cree que es una avería común. El sábado aparece «A file is missing or changed». El lunes piden congelar fondos, pero en Filipinas es feriado. La orden se lee el martes a las 9:11 a.m.',
+ vuln:['Sin plan de respuesta ni responsables','Sin conciliación automática de mensajes','Señales ignoradas por días'],
+ def:['Plan de respuesta con roles y tiempos','Conciliación diaria automática de mensajes SWIFT','Escalamiento inmediato y simulacros'],
+ cap:['<b>Ataque:</b> la orden de congelar llega el martes.','<b>Defensa:</b> con plan de respuesta, se congela el viernes.'],
+ flow:['Escanear tarjeta del viernes','Escanear sábado','Escanear lunes y martes','Ordenar acciones','Asignar responsables','Ver nuevo resultado'],
+ rf:['Hay 4 tarjetas (viernes, sábado, lunes, martes); cada una muestra en 3D lo que pasó.','El jugador elige en cada tarjeta qué debió hacerse y quién debía hacerlo.','Un cronómetro muestra el tiempo perdido entre la señal y la acción.','En modo defensa, el congelamiento ocurre el viernes y el dinero no sale.','Se genera un plan de respuesta resumido en pantalla.'],
+ ac:['Las 4 tarjetas se reconocen y muestran su escena.','El plan armado por el jugador cambia el resultado.'],
+ tech:{scene:'Escena «Respuesta_AR» con 4 ImageTargets.',objs:['Tarjeta_Viernes, _Sabado, _Lunes, _Martes','Cronometro_3D','Panel_Plan (lista de acciones y responsables)'],scripts:['DayTarget: muestra la escena del día','ActionPicker: opciones de respuesta por día','IncidentTimer: calcula horas perdidas','PlanBuilder: arma y muestra el plan final'],data:'Hechos y horas de cada día; acciones correctas y responsables.'},
+ roles:{pm:'Escribe los hechos de cada día y las opciones de respuesta.',dev:'Programa las tarjetas, el cronómetro y el armado del plan.',art:'Diseña las 4 tarjetas y las escenas en miniatura.',sec:'Define el plan de respuesta correcto (roles, tiempos, escalamiento).'},
+ play:'Escanea cada día y arma el plan de respuesta.'},
+{n:7,t:'VR',name:'Agencia Las Palmeras',date:'15 may 2015 · 9 feb 2016',
+ story:'Nueve meses antes se abren cinco cuentas con identidades falsas y 500 dólares cada una. El viernes llegan 81 millones; esa tarde salen 20 millones de pesos en una caja de cartón. Las cámaras no graban del 4 al 9. El martes, a las 10:24 a.m., se retiran 58 millones.',
+ vuln:['Verificación de identidad débil (KYC)','Cuentas dormidas que reciben millones sin alerta','Cámaras sin grabar y retiros sin retención'],
+ def:['Verificación de identidad y domicilio','Alerta por cuentas inactivas con montos grandes','Retención de fondos y monitoreo de CCTV'],
+ cap:['<b>Ataque:</b> las cámaras no graban y el dinero sale.','<b>Defensa:</b> las cámaras graban y los fondos quedan retenidos.'],
+ flow:['Portal a la agencia','Ventanilla y fichas','Monitor de cámaras','Registro de retiros','Activar controles','Resultado'],
+ rf:['La agencia tiene ventanilla, oficina de la gerente, monitor de CCTV y bóveda.','El jugador revisa las 5 fichas de apertura y detecta datos falsos.','El monitor muestra «sin señal» del 4 al 9 de febrero.','En modo defensa, el sistema retiene los fondos al detectar cuenta dormida con monto grande.','La caja de cartón aparece como evidencia en la oficina.'],
+ ac:['El jugador detecta al menos 3 datos falsos en las fichas.','El modo defensa muestra los 81 millones retenidos.'],
+ tech:{scene:'Escena «Agencia_VR» con 4 zonas y TeleportPoints.',objs:['Ficha_Apertura_01..05 (EvidenceItem)','Monitor_CCTV con shader de ruido','Caja_Carton y Boveda','Panel_Alertas (DefenseControl)'],scripts:['KycChecker: compara datos de la ficha','CctvFeed: alterna ruido o grabación según modo','DormantAlert: regla de cuenta inactiva','WithdrawalLog: muestra retiros con hora'],data:'5 cuentas, 500 dólares, 81 millones, 58 millones a las 10:24.'},
+ roles:{pm:'Escribe las fichas falsas y la historia de la agencia.',dev:'Programa la revisión de fichas, el CCTV y la alerta de cuenta dormida.',art:'Modela la agencia y el efecto de ruido del CCTV.',sec:'Explica KYC, monitoreo transaccional y controles internos.'},
+ play:'Revisa fichas, cámaras y retiros; activa la retención.'},
+{n:8,t:'VR',name:'Casa de cambio y casino',date:'5 al 13 feb 2016',
+ story:'Los dólares se cambian a pesos y entran a los casinos, que no estaban obligados a reportar. Los jugadores apuestan a la banca y al jugador a la vez: casi no ganan, casi no pierden, y el dinero sale limpio. Unos 30 millones se reparten en efectivo.',
+ vuln:['Casinos fuera de la ley antilavado (hasta 2017)','Operaciones fraccionadas sin alerta','Información aislada entre entidades'],
+ def:['Reportes de operaciones sospechosas','Detección de fraccionamiento','Intercambio de alertas entre entidades'],
+ cap:['<b>Ataque:</b> dólares, pesos, fichas y dinero «limpio».','<b>Defensa:</b> una alerta antilavado lo congela en la casa de cambio.'],
+ flow:['Portal a la casa de cambio','Libro de operaciones','Sala de juego','Mesa de bacará','Activar alerta','Resultado'],
+ rf:['La casa de cambio muestra un libro con operaciones fraccionadas.','En la sala de juego, una mesa de bacará muestra la apuesta doble con fichas animadas.','El jugador sigue el dinero de una zona a otra y registra cada paso.','En modo defensa, un reporte de operación sospechosa congela el dinero antes del casino.','Un contador muestra el dinero «lavado» en cada modo.'],
+ ac:['El jugador explica la apuesta doble en una pantalla de cierre.','El modo defensa detiene el flujo en la casa de cambio.'],
+ tech:{scene:'Escena «Casino_VR» con dos ambientes conectados por portal.',objs:['Libro_Operaciones (EvidenceItem)','Mesa_Bacara con fichas (Animator)','Panel_ROS (DefenseControl)','Contador_Dinero'],scripts:['StructuringDetector: suma operaciones pequeñas del mismo origen','ChipAnimator: animación de fichas en la mesa','AmlAlert: congela el flujo en Defensa','MoneyCounter: muestra el total en cada etapa'],data:'Fechas 5 al 13 de febrero; 58 millones; 30 millones en efectivo.'},
+ roles:{pm:'Escribe la explicación de la apuesta doble y el recorrido.',dev:'Programa el detector de fraccionamiento, las fichas y el contador.',art:'Modela la casa de cambio y la sala de juego con ambiente sonoro.',sec:'Explica lavado de activos, fraccionamiento y reportes de operaciones sospechosas.'},
+ play:'Sigue el dinero hasta el casino; activa la alerta antilavado.'},
+{n:9,t:'AR',name:'La ruta del dinero',date:'4 feb · marzo 2016',
+ story:'Un investigador reconstruye el viaje de los 81 millones: BANCO ANDINO, banco corresponsal, cuentas falsas, casa de cambio y casinos. Cada parada es un marcador escondido en el campus con un reto técnico.',
+ vuln:['Rastro repartido entre varios países','Sin trazabilidad de punta a punta'],
+ def:['Análisis de transacciones como grafo','Trazabilidad e intercambio de información'],
+ cap:['<b>Ataque:</b> el dinero recorre 5 paradas y se pierde.','<b>Defensa:</b> el rastreo lo detiene en la segunda parada.'],
+ flow:['Marcador 1 en el campus','Reto técnico','Pista de ubicación','Marcadores 2 a 5','Grafo completo','Código final'],
+ rf:['Hay 5 marcadores físicos en el campus, uno por parada.','Cada marcador muestra la parada en 3D y un reto (phishing, log, conversión, cifrado, grafo).','Al resolver el reto se obtiene un fragmento de código y la pista del siguiente lugar.','Un mapa en la app va dibujando la ruta del dinero como grafo.','Con los 5 fragmentos se desbloquea la pantalla final.'],
+ ac:['Los 5 marcadores funcionan con distinta luz del campus.','El progreso se guarda si la app se cierra (PlayerPrefs).'],
+ tech:{scene:'Escena «Ruta_AR» con 5 ImageTargets y un mapa superpuesto en UI.',objs:['Marcador_Parada_01..05','Reto_UI (panel con preguntas)','Mapa_Grafo (LineRenderer en Canvas)'],scripts:['StopTarget: muestra la parada y su reto','ChallengeManager: valida respuestas','GraphMap: dibuja nodos y aristas','ProgressSave: guarda con PlayerPrefs'],data:'5 paradas, 5 retos, 5 fragmentos de código.'},
+ roles:{pm:'Elige los lugares del campus y escribe las pistas.',dev:'Programa los retos, el mapa de grafo y el guardado.',art:'Diseña los 5 marcadores y las paradas 3D.',sec:'Diseña los retos técnicos y verifica sus respuestas.'},
+ play:'Busca los marcadores en el campus y resuelve cada reto.'},
+{n:10,t:'AR',name:'Sala de evidencias',date:'2016 · hoy',
+ story:'Un diario revela el robo el 29 de febrero. Renuncia el presidente del banco. Años después, EE. UU. acusa al grupo Lazarus y la gerente de la agencia es condenada. Falta la pregunta principal: ¿quién ayudó desde adentro?',
+ vuln:['Sin informe forense ni lecciones aprendidas','Sin inteligencia de amenazas compartida'],
+ def:['Informe forense con línea de tiempo','Inteligencia de amenazas sobre Lazarus','Control interno sobre accesos y personal'],
+ cap:['<b>Ataque:</b> cuatro sospechosos y una pregunta abierta.','<b>Defensa:</b> el informe forense une todas las evidencias.'],
+ flow:['Escanear tablero','Fichas de sospechosos','Unir evidencias','Línea de tiempo','Votar hipótesis','Revelación'],
+ rf:['Un tablero impreso muestra en 3D las fichas de los 4 sospechosos.','El jugador une con hilos rojos cada evidencia con un sospechoso.','Una línea de tiempo interactiva reúne las pistas de los otros equipos.','El jugador vota su hipótesis y la app indica si tiene sustento.','Se genera un informe forense resumido.'],
+ ac:['El tablero muestra las 4 fichas y al menos 8 evidencias.','La app justifica por qué una hipótesis tiene o no sustento.'],
+ tech:{scene:'Escena «Evidencias_AR» con un ImageTarget grande (tablero A3).',objs:['Ficha_Sospechoso_01..04','Evidencia_01..08','Hilo (LineRenderer entre dos objetos)'],scripts:['EvidenceLinker: crea hilos al tocar dos objetos','HypothesisEvaluator: compara las uniones con la solución','TimelineUI: línea de tiempo desplazable','ReportBuilder: arma el informe'],data:'Sospechosos, evidencias y la solución (definida por el docente).'},
+ roles:{pm:'Coordina con los demás equipos las evidencias que se usarán.',dev:'Programa los hilos, la evaluación de hipótesis y el informe.',art:'Diseña el tablero impreso y las fichas 3D.',sec:'Redacta el informe forense y la ficha de inteligencia de Lazarus.'},
+ play:'Une evidencias con sospechosos y vota la hipótesis.'},
+{n:11,t:'VR',name:'Banco intermediario',date:'4 y 5 feb 2016',
+ story:'La analista Nadia Perera revisa transferencias hacia Sri Lanka y ve 20 millones para una fundación diminuta con el nombre mal escrito: «Fandation». Pide aclaración y detiene el pago. Esos 20 millones se recuperan completos.',
+ vuln:['Aquí el control sí funcionó: validación humana','Las demás órdenes no tuvieron la misma revisión'],
+ def:['Automatizar la validación de nombres de beneficiarios','Alertas por montos inusuales según el país'],
+ cap:['<b>Ataque:</b> la analista detecta «FANDATION» y la detiene.','<b>Defensa:</b> la validación automática revisa todas las órdenes.'],
+ flow:['Portal a la sala de operaciones','Puesto de la analista','Revisar transferencias','Detectar alertas','Aprobar o detener','Resultado'],
+ rf:['El jugador ocupa el puesto de la analista con una pantalla de transferencias en tránsito.','Cada transferencia muestra beneficiario, país y monto; el jugador aprueba o detiene.','Se resaltan señales: nombre mal escrito, monto inusual para el país, beneficiario nuevo.','En modo defensa, un validador automático marca todas las órdenes sospechosas.','La pantalla final compara lo que detuvo el jugador con lo que detiene el validador.'],
+ ac:['La orden «Fandation» siempre aparece entre las primeras 5.','El validador automático detecta al menos 3 señales distintas.'],
+ tech:{scene:'Escena «Intermediario_VR» con un puesto de trabajo y ventanal nocturno.',objs:['Pantalla_Transferencias (Canvas)','Boton_Aprobar y Boton_Detener (GazeInteractable)','Validador_Auto (DefenseControl)'],scripts:['TransferQueue: cola de transferencias','NameValidator: distancia de Levenshtein contra nombres válidos','AmountRule: monto según país','CompareResult: jugador frente a validador'],data:'Lista de transferencias con «SHALIKA FANDATION», 20 millones, Sri Lanka.'},
+ roles:{pm:'Escribe las transferencias y los textos de alerta.',dev:'Programa la cola, el validador de nombres y las reglas.',art:'Diseña el puesto de trabajo y la interfaz de la pantalla.',sec:'Explica validación de datos y detección de anomalías.'},
+ play:'Aprueba o detiene transferencias detectando las alertas.'}
+];
+
+/* ---------- visuales SVG por escenario ---------- */
+function sq36(){ var o = '', k = 0; for(var r = 0; r < 6; r++){ for(var c = 0; c < 6; c++){ k++;
+  var col = k <= 30 ? 'var(--code)' : (k <= 34 ? 'var(--red)' : (k === 35 ? 'var(--amber)' : '#3a4a42'));
+  o += '<rect class="sq" style="--i:' + k + ';fill:' + col + '" x="' + (20 + c * 22) + '" y="' + (12 + r * 21) + '" width="16" height="16" rx="2"/>'; } }
+  return o; }
+var V = {
+1:'<svg class="viz v1" viewBox="0 0 360 150"><text class="lbl" x="20" y="18">CORREO DE «RASEL AHLAM»</text><g class="env"><rect x="20" y="60" width="44" height="30" rx="3" fill="none" stroke="#38f28a" stroke-width="2"/><path d="M20 60 L42 78 L64 60" fill="none" stroke="#38f28a" stroke-width="2"/></g><g class="shield"><path d="M170 50 L190 42 L210 50 V74 Q210 94 190 102 Q170 94 170 74 Z" fill="rgba(56,242,138,.15)" stroke="#38f28a" stroke-width="2"/><text x="190" y="118" text-anchor="middle" class="g">CUARENTENA</text></g><rect class="inbox" x="270" y="48" width="70" height="56" rx="4" fill="rgba(255,90,78,.08)" stroke="#ff5a4e"/><rect class="inbox-hit" x="270" y="48" width="70" height="56" rx="4" fill="rgba(255,90,78,.35)"/><text x="305" y="80" text-anchor="middle">BANDEJA</text><text class="lbl" x="305" y="120" text-anchor="middle">16 DESTINATARIOS</text></svg>',
+2:'<svg class="viz v2" viewBox="0 0 360 150"><path d="M30 110 L95 45 L160 100 L230 45 L320 80" fill="none" stroke="rgba(56,242,138,.3)" stroke-dasharray="3 4"/><g fill="#020a06" stroke="#38f28a"><circle cx="30" cy="110" r="10"/><circle cx="95" cy="45" r="10"/><circle cx="160" cy="100" r="10"/><circle cx="230" cy="45" r="10"/></g><rect class="swift" x="300" y="64" width="44" height="32" rx="4" fill="rgba(255,90,78,.35)"/><rect x="300" y="64" width="44" height="32" rx="4" fill="none" stroke="#ff5a4e"/><text x="322" y="84" text-anchor="middle">SWIFT</text><g class="fw"><rect x="192" y="52" width="8" height="58" fill="#38f28a"/><text x="196" y="124" text-anchor="middle" class="g">FIREWALL</text></g><circle class="bug" r="6" fill="#ff5a4e"/><text class="lbl" x="20" y="18">RED PLANA · SWITCHES DE US$10</text></svg>',
+3:'<svg class="viz v3" viewBox="0 0 360 150"><text class="lbl" x="20" y="18">TERMINAL SWIFT · 20:36 → 03:59</text><g>' + [0,1,2,3].map(function(i){ var x = 24 + i * 52; var leds = ''; for(var j = 0; j < 7; j++){ leds += '<circle class="led" style="animation-delay:' + ((i * 7 + j) * 0.13 % 1).toFixed(2) + 's" cx="' + (x + 12) + '" cy="' + (40 + j * 13) + '" r="2.5" fill="' + (j % 3 === 0 ? '#ff5a4e' : '#38f28a') + '"/><rect x="' + (x + 20) + '" y="' + (37 + j * 13) + '" width="18" height="5" fill="rgba(56,242,138,.25)"/>'; } return '<rect x="' + x + '" y="30" width="44" height="100" rx="3" fill="#020a06" stroke="rgba(56,242,138,.4)"/>' + leds; }).join('') + '</g><rect x="250" y="40" width="90" height="50" rx="4" fill="#020a06" stroke="#38f28a"/><text x="295" y="62" text-anchor="middle">IMPRESORA</text><text class="r pr-x" x="295" y="80" text-anchor="middle">APAGADA</text><g class="alarm"><rect x="236" y="100" width="118" height="30" rx="3" fill="rgba(255,90,78,.25)" stroke="#ff5a4e"/><text x="295" y="119" text-anchor="middle" class="r">ALERTA 20:36 · BLOQUEADA</text></g></svg>',
+4:'<svg class="viz v4" viewBox="0 0 360 150">' + sq36() + '<g transform="translate(170,20)"><rect width="10" height="10" fill="#38f28a"/><text x="16" y="9">30 bloqueadas (~US$850 M)</text><rect y="22" width="10" height="10" fill="#ff5a4e"/><text x="16" y="31">4 pagadas a Manila (US$81 M)</text><rect y="44" width="10" height="10" fill="#ffc24a"/><text x="16" y="53">1 a la «Fandation» (US$20 M)</text><rect y="66" width="10" height="10" fill="#3a4a42"/><text x="16" y="75">1 nunca reenviada</text><text class="lbl" y="104">36 ÓRDENES · US$951 M</text></g></svg>',
+5:'<svg class="viz v5" viewBox="0 0 360 150"><circle cx="90" cy="75" r="58" fill="none" stroke="rgba(56,242,138,.3)"/><circle cx="90" cy="75" r="38" fill="none" stroke="rgba(56,242,138,.2)"/><circle cx="90" cy="75" r="18" fill="none" stroke="rgba(56,242,138,.2)"/><path class="sweep" d="M90 75 L148 75 A58 58 0 0 0 131 34 Z" fill="rgba(56,242,138,.22)"/><circle class="blip-r" cx="120" cy="52" r="4" fill="#ff5a4e"/><circle class="blip-r" cx="62" cy="96" r="4" fill="#ff5a4e"/><circle cx="104" cy="104" r="4" fill="#38f28a"/><circle cx="70" cy="48" r="4" fill="#38f28a"/><g class="jup"><rect x="180" y="30" width="160" height="28" rx="3" fill="rgba(255,194,74,.18)" stroke="#ffc24a"/><text x="260" y="48" text-anchor="middle" class="a">COINCIDENCIA: «JUPITER»</text></g><text x="180" y="80">30 órdenes congeladas</text><text x="180" y="96" class="r">5 ya pagadas</text><g class="call"><rect x="180" y="106" width="160" height="26" rx="3" fill="rgba(56,242,138,.18)" stroke="#38f28a"/><text x="260" y="123" text-anchor="middle" class="g">LLAMADA 24/7 · RETENIDAS</text></g></svg>',
+6:'<svg class="viz v6" viewBox="0 0 360 150"><line x1="40" y1="80" x2="320" y2="80" stroke="rgba(56,242,138,.4)" stroke-width="2"/>' + ['VIE 5','SÁB 6','DOM 7','LUN 8','MAR 9'].map(function(d, i){ var x = 40 + i * 58; return '<circle cx="' + x + '" cy="80" r="5" fill="#020a06" stroke="#38f28a"/><text x="' + x + '" y="104" text-anchor="middle">' + d + '</text>'; }).join('') + '<g class="mk"><path d="M40 52 l8 14 h-16 z" fill="#ff5a4e"/></g><text class="lbl" x="20" y="18">TIEMPO HASTA CONGELAR LOS FONDOS</text><text class="r lab-a" x="320" y="134" text-anchor="end">CONGELADO: MARTES 9:11 · TARDE</text><text class="g lab-d" x="40" y="134">CON PLAN: CONGELADO EL VIERNES</text></svg>',
+7:'<svg class="viz v7" viewBox="0 0 360 150"><text class="lbl" x="20" y="18">CCTV AGENCIA LAS PALMERAS · 4 AL 9 FEB</text>' + [0,1,2].map(function(i){ var x = 20 + i * 112; return '<rect x="' + x + '" y="30" width="100" height="70" rx="3" fill="#020a06" stroke="rgba(56,242,138,.4)"/><g class="noise">' + Array.from({length: 18}, function(_, k){ return '<rect x="' + (x + 4 + (k * 37) % 90) + '" y="' + (34 + (k * 23) % 60) + '" width="' + (4 + k % 6) + '" height="2" fill="rgba(214,242,226,.5)"/>'; }).join('') + '</g><text class="r nosig" x="' + (x + 50) + '" y="70" text-anchor="middle">SIN SEÑAL</text><g class="rec"><circle cx="' + (x + 12) + '" cy="40" r="4" fill="#ff5a4e" class="blink"/><text x="' + (x + 50) + '" y="70" text-anchor="middle" class="g">GRABANDO</text></g>'; }).join('') + '<text x="20" y="124">US$81 M recibidos · US$58 M retirados el 9 feb, 10:24</text><text class="g rec" x="20" y="140">DEFENSA: FONDOS RETENIDOS POR CUENTA DORMIDA</text></svg>',
+8:'<svg class="viz v8" viewBox="0 0 360 150"><text class="lbl" x="20" y="18">DÓLARES → PESOS → FICHAS → «LIMPIO»</text><g><circle cx="40" cy="74" r="20" fill="none" stroke="#ff5a4e" stroke-width="2"/><text x="40" y="78" text-anchor="middle" class="r">US$</text><text x="40" y="112" text-anchor="middle">cambio</text></g><g class="stop"><rect x="70" y="40" width="70" height="70" rx="4" fill="rgba(56,242,138,.12)" stroke="#38f28a"/><text x="105" y="70" text-anchor="middle" class="g">ALERTA</text><text x="105" y="84" text-anchor="middle" class="g">ANTILAVADO</text></g><g class="after"><path d="M150 74 H180" stroke="rgba(56,242,138,.4)"/><ellipse class="coin" cx="212" cy="64" rx="18" ry="18" fill="rgba(255,194,74,.2)" stroke="#ffc24a" stroke-width="3" stroke-dasharray="4 3"/><text x="212" y="98" text-anchor="middle">BANCA</text><ellipse class="coin" style="animation-delay:.7s" cx="262" cy="64" rx="18" ry="18" fill="rgba(255,194,74,.2)" stroke="#ffc24a" stroke-width="3" stroke-dasharray="4 3"/><text x="262" y="98" text-anchor="middle">JUGADOR</text><path d="M286 74 H306" stroke="rgba(56,242,138,.4)"/><text x="330" y="78" text-anchor="middle" class="g">LIMPIO</text><text x="237" y="124" text-anchor="middle" class="lbl">APUESTA DOBLE · CASI NO PIERDEN</text></g></svg>',
+9:'<svg class="viz v9" viewBox="0 0 360 150"><text class="lbl" x="20" y="18">RUTA DE LOS US$81 M</text><path d="M30 110 C70 40, 110 40, 120 80 S190 130, 210 70 S290 30, 330 90" fill="none" stroke="rgba(56,242,138,.18)" stroke-width="3"/><path class="route" d="M30 110 C70 40, 110 40, 120 80 S190 130, 210 70 S290 30, 330 90" fill="none" stroke="#ff5a4e" stroke-width="3"/>' + [[30,110,'ANDINO'],[120,80,'CORRESP.'],[210,70,'CUENTAS'],[275,52,'CAMBIO'],[330,90,'CASINO']].map(function(p){ return '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="6" fill="#020a06" stroke="#38f28a" stroke-width="2"/><text x="' + p[0] + '" y="' + (p[1] + 20) + '" text-anchor="middle">' + p[2] + '</text>'; }).join('') + '<g class="trace"><rect x="150" y="120" width="190" height="22" rx="3" fill="rgba(56,242,138,.18)" stroke="#38f28a"/><text x="245" y="135" text-anchor="middle" class="g">RASTREO: DETENIDO EN 2.ª PARADA</text></g></svg>',
+10:'<svg class="viz v10" viewBox="0 0 360 150"><text class="lbl" x="20" y="18">TABLERO DE INVESTIGACIÓN</text>' + [[40,40,'TORRES'],[40,108,'BENAVIDES'],[320,40,'MENDOZA'],[320,108,'ALIAGA']].map(function(p, i){ return '<line class="str" style="--i:' + i + '" x1="' + p[0] + '" y1="' + p[1] + '" x2="180" y2="76" stroke="#ff5a4e" stroke-width="1.5"/><rect x="' + (p[0] - 34) + '" y="' + (p[1] - 14) + '" width="68" height="26" rx="2" fill="#020a06" stroke="rgba(255,90,78,.6)"/><text x="' + p[0] + '" y="' + (p[1] + 3) + '" text-anchor="middle">' + p[2] + '</text>'; }).join('') + '<circle cx="180" cy="76" r="20" fill="#020a06" stroke="#ffc24a" stroke-width="2"/><text class="a q" x="180" y="82" text-anchor="middle" style="font-size:16px">?</text><g class="rep"><rect x="128" y="112" width="104" height="24" rx="3" fill="rgba(56,242,138,.18)" stroke="#38f28a"/><text x="180" y="128" text-anchor="middle" class="g">INFORME FORENSE</text></g></svg>',
+11:'<svg class="viz v11" viewBox="0 0 360 150"><text class="lbl" x="20" y="18">BENEFICIARIO · ORDEN DE US$20 M A SRI LANKA</text><g style="font-size:22px">' + 'SHALIKA FANDATION'.split('').map(function(ch, i){ var bad = i === 9; return '<text x="' + (34 + i * 17) + '" y="80" ' + (bad ? 'class="r bad" style="font-size:22px"' : 'style="font-size:22px"') + '>' + ch + '</text>'; }).join('') + '</g><rect class="scanbar" x="30" y="54" width="22" height="34" fill="rgba(56,242,138,.25)"/><text x="34" y="112" class="r">«FANDATION» ≠ «FOUNDATION» · PAGO DETENIDO</text><text x="34" y="132" class="g auto">VALIDADOR AUTOMÁTICO: 3 SEÑALES EN OTRAS ÓRDENES</text></svg>'
+};
+
+/* ---------- personajes ---------- */
+var P = [
+ {i:'ST',name:'Ing. Samuel Torres',role:'Jefe de TI',sus:true,front:'Responsable de la red plana, sin firewall. Había pedido presupuesto de seguridad y no se lo aprobaron.',
+  career:'Ingeniero de Sistemas, con maestría en Redes y Comunicaciones.',profile:'15 años en el banco. Construyó la red desde cero con presupuestos ajustados. Domina infraestructura; menos la parte de seguridad.',
+  psych:'Metódico y orgulloso de su trabajo. Le frustra que Gerencia no escuche sus pedidos. Bajo presión se encierra y no delega.',
+  t:[['Control',80],['Resentimiento',55],['Comunicación',35]],pro:'Tiene acceso total a la red y conoce cada punto débil.',contra:'Dejó por escrito sus advertencias de seguridad meses antes.'},
+ {i:'HB',name:'Lic. Hugo Benavides',role:'Director adjunto de Pagos',sus:true,front:'Encontró la impresora apagada el viernes y pensó que era una avería común.',
+  career:'Economista con MBA en Finanzas.',profile:'Gestiona pagos internacionales desde hace 8 años. Buen negociador, poco familiarizado con la tecnología.',
+  psych:'Confiado y optimista; tiende a minimizar problemas para no generar alarma. Bajo presión busca culpables fuera de su área.',
+  t:[['Confianza',85],['Atención al detalle',40],['Aversión al riesgo',30]],pro:'Ignoró la primera señal del ataque y se fue a casa.',contra:'No tenía acceso técnico a la terminal SWIFT.'},
+ {i:'CM',name:'Carla Mendoza',role:'Operadora SWIFT',sus:true,front:'Maneja las credenciales de pago. Recibió el correo de «Rasel Ahlam» y trabajó horas extra la semana previa.',
+  career:'Bachiller en Administración Bancaria, con certificación en operaciones de comercio exterior.',profile:'6 años en operaciones. Rápida y precisa con las órdenes; anota contraseñas para no olvidarlas.',
+  psych:'Responsable y muy trabajadora, pero con miedo a equivocarse. Bajo presión obedece sin cuestionar.',
+  t:[['Disciplina',80],['Temor a errar',70],['Cuestionamiento',25]],pro:'Sus credenciales se usaron la noche del ataque.',contra:'Su contraseña estaba anotada a la vista de cualquiera.'},
+ {i:'RA',name:'Renzo Aliaga',role:'Técnico de proveedor externo',sus:true,front:'Instaló una actualización en la terminal SWIFT semanas antes del ataque.',
+  career:'Técnico en Redes y Telecomunicaciones; cursa Ingeniería de Telecomunicaciones.',profile:'Trabaja para una empresa contratista que da soporte a varios bancos. Tiene acceso remoto a equipos del BANCO ANDINO.',
+  psych:'Ambicioso y curioso; le gusta resolver rápido aunque se salte procedimientos. Bajo presión improvisa.',
+  t:[['Ambición',80],['Apego a normas',30],['Pericia técnica',75]],pro:'Tuvo contacto directo con la terminal SWIFT.',contra:'Su actualización fue aprobada y documentada por el banco.'},
+ {i:'AR',name:'Dr. Alberto Ríos',role:'Presidente del BANCO ANDINO',sus:false,front:'Renuncia un mes después del robo.',
+  career:'Economista, doctor en Finanzas Internacionales.',profile:'Exfuncionario de banca regional; llegó a la presidencia para modernizar el banco.',
+  psych:'Prudente y protector de la imagen institucional; demoró la comunicación pública del robo.',
+  t:[['Prudencia',75],['Transparencia',40],['Liderazgo',65]]},
+ {i:'MV',name:'Marta Vidal',role:'Gerente de agencia Las Palmeras',sus:false,front:'En su agencia se abrieron las cuentas falsas y salió el dinero. Años después es condenada por lavado.',
+  career:'Contadora Pública con especialización en Banca de Agencias.',profile:'12 años como gerente de agencia; conoce a los clientes grandes de la zona.',
+  psych:'Persuasiva y segura de sí misma; prioriza las metas de captación por encima de los controles.',
+  t:[['Persuasión',85],['Cumplimiento',25],['Ambición',80]]},
+ {i:'NP',name:'Nadia Perera',role:'Analista del banco intermediario',sus:false,front:'Detectó «Fandation» y detuvo 20 millones de dólares.',
+  career:'Ingeniera Estadística con certificación en prevención de lavado de activos.',profile:'Analista de cumplimiento; revisa transferencias en tránsito con criterios de riesgo.',
+  psych:'Escéptica y minuciosa; no aprueba nada que no entienda. Bajo presión pregunta más, no menos.',
+  t:[['Escepticismo',85],['Atención al detalle',90],['Paciencia',70]]},
+ {i:'VL',name:'Víctor Lam',role:'Empresario del juego',sus:false,front:'Parte del dinero pasó por sus casinos. Después devolvió una parte.',
+  career:'Administrador de Empresas Hoteleras y de Juego.',profile:'Opera salas de juego y organiza grupos de grandes jugadores extranjeros.',
+  psych:'Carismático y calculador; coopera solo cuando le conviene.',
+  t:[['Carisma',80],['Cálculo',85],['Cooperación',35]]}
+];
+
+/* ---------- roles ---------- */
+var R = [
+ {k:'pm',name:'Líder de proyecto y narrativa',who:'Scrum Master · guionista',ico:'<svg viewBox="0 0 24 24" fill="none" stroke="#38f28a" stroke-width="1.6"><circle cx="12" cy="7" r="3"/><path d="M5 20c1-4 4-6 7-6s6 2 7 6"/><path d="M3 4h4M17 4h4"/></svg>',
+  tasks:['Planifica sprints semanales en un tablero (Trello o GitHub Projects).','Escribe el guion, los textos y las voces del escenario.','Coordina con los equipos de los escenarios vecinos.','Dirige la presentación final y el tráiler.'],out:'Entrega: cronograma, guion, ficha del proyecto.'},
+ {k:'dev',name:'Desarrollador Unity (C#)',who:'Programación · build',ico:'<svg viewBox="0 0 24 24" fill="none" stroke="#38f28a" stroke-width="1.6"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg>',
+  tasks:['Implementa GameManager, ScenarioData y el modo ataque/defensa.','Programa interacciones (mirada en VR, marcadores en AR).','Integra arte y sonido; resuelve errores.','Genera el APK y lo prueba en celular.'],out:'Entrega: repositorio, scripts, APK.'},
+ {k:'art',name:'Artista 3D, UI y sonido',who:'Escenario · interfaz · audio',ico:'<svg viewBox="0 0 24 24" fill="none" stroke="#38f28a" stroke-width="1.6"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>',
+  tasks:['Arma el escenario con modelos libres (Sketchfab, Poly Pizza) y materiales.','Diseña la interfaz y los marcadores AR (3 estrellas o más).','Crea el ambiente sonoro y efectos.','Genera clips del tráiler en Kling AI.'],out:'Entrega: escena, marcadores PDF, créditos.'},
+ {k:'sec',name:'Analista de ciberseguridad y QA',who:'Investigación · pruebas',ico:'<svg viewBox="0 0 24 24" fill="none" stroke="#38f28a" stroke-width="1.6"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg>',
+  tasks:['Investiga el escenario en la demanda, la denuncia y el video.','Define la vulnerabilidad y la contramedida con precisión técnica.','Diseña los casos de prueba y prueba en 2 celulares.','Redacta la sección técnica de la ficha.'],out:'Entrega: análisis, casos de prueba, informe QA.'}
+];
+
+/* ---------- linea de tiempo ---------- */
+var T = [
+ ['29 ene 2015','Correo de «Rasel Ahlam» con un falso currículum a 16 empleados. Al menos 3 computadoras intentan descargarlo.',1],
+ ['15 may 2015','Se abren 5 cuentas en dólares con identidades falsas y US$500 cada una. Cuatro cartas de bienvenida vuelven devueltas.',0],
+ ['29 ene 2016','Tras un año de espionaje, los atacantes llegan a la terminal SWIFT.',0],
+ ['4 feb · 8:36 p.m.','Inicio de sesión en SWIFT. Salen 36 órdenes por US$951 millones; 35 rechazadas por formato y reenviadas.',1],
+ ['4–5 feb','«Jupiter» coincide con una lista de sanciones: 30 órdenes bloqueadas. Pasan 5 por US$101 millones.',0],
+ ['5 feb · 3:59 a.m.','Los atacantes salen. El malware apaga la impresora de confirmaciones.',0],
+ ['5 feb · mañana','La impresora apagada se toma como una avería común. Llegan US$81 millones a la agencia receptora.',0],
+ ['6 feb','«A file is missing or changed». Aparecen las órdenes falsas. Nadie contesta en Nueva York.',0],
+ ['8 feb','Orden de congelar fondos. En el país receptor es Año Nuevo chino y el banco está desconectado de SWIFT.',0],
+ ['9 feb · 10:24 a.m.','Una hora después de leer la orden, se retiran US$58 millones. Las cámaras no graban del 4 al 9.',1],
+ ['5–13 feb','Casa de cambio y casinos: el dinero se lava apostando a la banca y al jugador a la vez.',0],
+ ['15 mar 2016','Renuncia el presidente del banco central.',0],
+ ['6 sep 2018','EE. UU. acusa a un programador del grupo Lazarus por Sony, Bangladesh y WannaCry.',0],
+ ['Hoy','Recuperados US$35 millones (20 + 15). Perdidos US$66 millones. El cómplice interno nunca fue identificado.',1]
+];
+
+/* ---------- render: consola ---------- */
+var log = $('#log');
+var L = [['dim','[02:14:07] Escaneo de red · sede principal'],['alert','[02:14:09] ALERTA: firma de malware coincide con BB-2016'],['alert','[02:14:09] Atribución probable: grupo Lazarus'],['','[02:14:12] Técnicas previstas: phishing, SWIFT, fin de semana'],['','[02:14:15] Cargando ANDES-SIM · 11 escenarios'],['','[02:14:18] Unidad de Respuesta: 28 equipos asignados'],['','[02:14:20] Misión: revivir, analizar y defender'],['','[02:14:21] Esperando defensas de los equipos_']];
+function paint(n){ log.innerHTML = L.slice(0, n).map(function(l){ return '<li class="' + l[0] + '">' + l[1] + '</li>'; }).join(''); }
+paint(L.length);
+if(!reduce){ setTimeout(function(){ paint(0); var k = 0; (function st(){ k++; paint(k); if(k < L.length){ setTimeout(st, 480); } })(); }, 1200); }
+
+/* ---------- render: cadena ---------- */
+var chain = $('#chain'), res = $('#chain-result'), sw = $('#chain-sw'), mA = $('#m-attack'), mD = $('#m-defense'), ct;
+chain.innerHTML = S.map(function(s){ return '<button type="button" class="node lit" data-n="' + s.n + '"><span class="dot">' + s.n + '</span>' + s.name + '</button>'; }).join('');
+var nodes = $$('.node', chain);
+function runChain(def){
+  clearTimeout(ct); chain.classList.toggle('def', def); sw.classList.toggle('redsel', !def);
+  mA.setAttribute('aria-pressed', !def); mD.setAttribute('aria-pressed', def);
+  res.innerHTML = def ? '<span class="pill green">Con sus defensas</span><span>Cada escenario es un punto donde la cadena se rompe: US$0 perdidos</span>' : '<span class="pill red">Resultado 2016</span><span>US$101 millones pagados · US$66 millones nunca recuperados</span>';
+  if(reduce){ return; }
+  nodes.forEach(function(n){ n.classList.remove('lit'); }); var i = 0;
+  (function go(){ if(i < nodes.length){ nodes[i].classList.add('lit'); i++; ct = setTimeout(go, 170); } })();
+}
+runChain(false);
+mA.addEventListener('click', function(){ runChain(false); }); mD.addEventListener('click', function(){ runChain(true); });
+nodes.forEach(function(n){ n.addEventListener('click', function(){ select(+n.dataset.n); $('#escenarios').scrollIntoView({behavior: reduce ? 'auto' : 'smooth'}); }); });
+
+/* ---------- render: linea de tiempo ---------- */
+$('#tl-list').innerHTML = T.map(function(t){ return '<li class="' + (t[2] ? 'key' : '') + '"><div class="card"><time>' + t[0] + '</time><p>' + t[1] + '</p></div></li>'; }).join('');
+
+/* ---------- render: personajes ---------- */
+$('#people').innerHTML = P.map(function(p, idx){
+  var traits = '<div class="traits">' + p.t.map(function(t){ return '<div class="trait">' + t[0] + '<i style="--v:' + t[1] + '%"></i></div>'; }).join('') + '</div>';
+  var sus = p.sus ? '<dt>En contra</dt><dd>' + p.pro + '</dd><dt>A favor</dt><dd>' + p.contra + '</dd>' : '';
+  return '<div class="pc rv' + (p.sus ? ' sus' : '') + '" data-i="' + idx + '"><div class="pc-in">' +
+   '<div class="face front"><button type="button" class="flipbtn" aria-label="Ver perfil de ' + p.name + '">Perfil</button><div class="avatar">' + p.i + '</div><b class="nm">' + p.name + '</b><span class="role">' + p.role + '</span>' + (p.sus ? '<span class="susp">SOSPECHOSO</span>' : '') + '<p>' + p.front + '</p><span class="hint">Toca para ver carrera, perfil y psicología</span></div>' +
+   '<div class="face back"><button type="button" class="flipbtn" aria-label="Volver">Volver</button><b class="nm" style="margin-top:0">' + p.name + '</b><dl><dt>Carrera</dt><dd>' + p.career + '</dd><dt>Perfil profesional</dt><dd>' + p.profile + '</dd><dt>Psicología</dt><dd>' + p.psych + '</dd>' + traits + sus + '</dl></div>' +
+   '</div></div>'; }).join('');
+$$('.pc').forEach(function(c){ c.addEventListener('click', function(){ c.classList.toggle('flip'); }); });
+
+/* ---------- render: roles ---------- */
+$('#roles-grid').innerHTML = R.map(function(r){ return '<div class="role panel-box rv"><div class="ico">' + r.ico + '</div><h3>' + r.name + '</h3><div class="who">' + r.who + '</div><ul>' + r.tasks.map(function(t){ return '<li>' + t + '</li>'; }).join('') + '</ul><div class="out">' + r.out + '</div></div>'; }).join('');
+
+/* ---------- explorador de escenarios ---------- */
+var slist = $('#slist'), detail = $('#detail'), cur = 1, mode = 'attack', tab = 'story';
+slist.insertAdjacentHTML('beforeend', S.map(function(s){ return '<button type="button" class="sbtn" role="tab" data-n="' + s.n + '" data-t="' + s.t + '" aria-selected="false"><span class="n">' + String(s.n).padStart(2, '0') + '</span><span class="t">' + s.name + '</span><span class="tag ' + s.t + '">' + s.t + '</span></button>'; }).join(''));
+function li(a){ return '<ul>' + a.map(function(x){ return '<li>' + x + '</li>'; }).join('') + '</ul>'; }
+function body(s, k){
+  if(k === 'story'){ return '<p>' + s.story + '</p><div class="sub">El jugador</div><p>' + s.play + '</p>'; }
+  if(k === 'vuln'){ return '<div class="sub">Lo que aprovechó Lazarus</div>' + li(s.vuln); }
+  if(k === 'def'){ return '<div class="sub">Defensa que deben programar</div>' + li(s.def); }
+  if(k === 'func'){ return '<div class="sub">Flujo del jugador</div><div class="flow">' + s.flow.map(function(f, i){ return '<span style="--i:' + i + '">' + f + '</span>' + (i < s.flow.length - 1 ? '<em>→</em>' : ''); }).join('') + '</div><div class="sub">Requisitos funcionales</div><dl class="req">' + s.rf.map(function(r, i){ return '<dt>RF-' + String(i + 1).padStart(2, '0') + '</dt><dd>' + r + '</dd>'; }).join('') + '</dl><div class="sub">Criterios de aceptación</div><ul class="chk">' + s.ac.map(function(a){ return '<li>' + a + '</li>'; }).join('') + '</ul>'; }
+  if(k === 'tech'){ var t = s.tech; return '<p><b>Escena:</b> ' + t.scene + '</p><div class="cols"><div><div class="sub">Objetos y prefabs</div>' + li(t.objs) + '</div><div><div class="sub">Scripts C#</div>' + li(t.scripts) + '</div></div><div class="sub">Datos</div><p>' + t.data + '</p><div class="sub">Configuración base</div><p>' + (s.t === 'VR' ? 'Cardboard XR Plugin, Android 8+ (API 26), IL2CPP ARM64, OpenGLES3, capa Interactive en la retícula, orientación Landscape Left.' : 'Vuforia Engine 11.4, licencia Basic, ARCore DONT_USE u OPTIONAL, Android 10+ ARM64, Image Targets de 3 estrellas o más.') + '</p>'; }
+  if(k === 'roles'){ return '<div class="rtab">' + R.map(function(r){ return '<div><b>' + r.name + '</b><span>' + s.roles[r.k] + '</span></div>'; }).join('') + '</div>'; }
+}
+var TABS = [['story','Historia'],['vuln','Vulnerabilidad'],['def','Defensa'],['func','Funcional'],['tech','Técnico'],['roles','Roles']];
+function renderDetail(){
+  var s = S[cur - 1];
+  detail.innerHTML = '<div class="d-head"><div style="display:flex;gap:16px;align-items:flex-end"><span class="d-num">' + String(s.n).padStart(2, '0') + '</span><div class="d-title"><span class="tag ' + s.t + '">' + s.t + '</span><h3 id="d-h">' + s.name + '</h3><div class="d-date">' + s.date + '</div></div></div>' +
+    '<div class="switch' + (mode === 'attack' ? ' redsel' : '') + '" role="group" aria-label="Modo"><button type="button" data-m="attack" aria-pressed="' + (mode === 'attack') + '">Ataque 2016</button><button type="button" data-m="defense" aria-pressed="' + (mode === 'defense') + '">Con defensa</button></div></div>' +
+    '<div class="viz-wrap ' + (mode === 'defense' ? 'def' : '') + '" id="vizw"><div class="viz-bar"><span>Simulación · escenario ' + s.n + '</span><span class="pill ' + (mode === 'defense' ? 'green">Defensa activa' : 'red">Ataque 2016') + '</span></div>' + V[s.n] + '<div class="viz-cap">' + (mode === 'defense' ? s.cap[1] : s.cap[0]) + '</div></div>' +
+    '<div class="dtabs" role="tablist">' + TABS.map(function(t){ return '<button type="button" role="tab" data-k="' + t[0] + '" aria-selected="' + (tab === t[0]) + '">' + t[1] + '</button>'; }).join('') + '</div>' +
+    '<div class="dpanel on" id="dpanel">' + body(s, tab) + '</div>';
+  $$('[data-m]', detail).forEach(function(b){ b.addEventListener('click', function(){ mode = b.dataset.m; renderDetail(); }); });
+  $$('.dtabs button', detail).forEach(function(b){ b.addEventListener('click', function(){ tab = b.dataset.k;
+    $$('.dtabs button', detail).forEach(function(x){ x.setAttribute('aria-selected', x === b); });
+    var p = $('#dpanel'); p.innerHTML = body(s, tab); p.classList.remove('on'); void p.offsetWidth; p.classList.add('on'); }); });
+}
+function scramble(h){ if(reduce || !h){ return; } var fin = h.textContent, ch = 'ABCDEF0123456789#$%&/<>', f = 0;
+  var iv = setInterval(function(){ h.textContent = fin.split('').map(function(c, k){ return (c === ' ' || k < f / 2) ? c : ch[Math.floor(Math.random() * ch.length)]; }).join(''); f++; if(f / 2 > fin.length){ clearInterval(iv); h.textContent = fin; } }, 30); }
+function select(n){
+  cur = n; $$('.sbtn', slist).forEach(function(b){ b.setAttribute('aria-selected', +b.dataset.n === n); });
+  renderDetail(); detail.classList.remove('swap'); void detail.offsetWidth; detail.classList.add('swap'); scramble($('#d-h'));
+}
+$$('.sbtn', slist).forEach(function(b){ b.addEventListener('click', function(){ select(+b.dataset.n); }); });
+$$('.filters button', slist).forEach(function(b, i, all){ b.addEventListener('click', function(){ all.forEach(function(x){ x.setAttribute('aria-pressed', x === b); });
+  $$('.sbtn', slist).forEach(function(s){ s.hidden = !(b.dataset.f === 'all' || s.dataset.t === b.dataset.f); }); }); });
+select(1);
+
+/* ---------- NRC ---------- */
+var NRC = {
+ '30188':{teams:[['Grupo 1',1],['Grupo 2',2],['Grupo 3',3],['Grupo 4',4],['Grupo 5',5],['Grupo 7',6],['Grupo 9',7],['Grupo 10',8],['Grupo 11',9],['Grupo 12',10]],note:'Escenarios 1 al 10. No existen los Grupos 6 y 8; se mantiene la numeración de Drive.'},
+ '30190':{teams:[['01_Equipo01 (Slime launcher)',1],['02_Equipo02 (Guardián de Huancayo)',2],['03_Equipo03 (Lumari)',3],['04_Equipo04 (Sort & Solve)',4],['05_Equipo05 (A Toda Olla)',5],['06_Equipo06 (Medicinal Roots)',6],['07_Equipo07 (Imperfect Animals)',7],['08_Equipo08 (EcoBot)',8],['09_Equipo09 (Curwen-Game)',9],['10_Equipo10 (Koa y el Renacer del Amazonas)',10],['11_Equipo11 (Guardián del Bosque)',11]],note:'Escenarios 1 al 11. Es el único NRC con el escenario 11.'},
+ '30192':{teams:[['01_Equipo01',1],['02_Equipo02',2],['03_Equipo_03',3],['04_Equipo04',4],['05_Equipo05',6],['06_Equipo6',7],['07_Equipo7',9]],note:'Escenarios 1, 2, 3, 4, 6, 7 y 9. Los escenarios 5, 8 y 11 se cuentan en la presentación final y el 10 se hace entre todos.'}
+};
+function showNRC(n){ $('#nrc-body').innerHTML = NRC[n].teams.map(function(t, i){ var s = S[t[1] - 1]; return '<tr style="--i:' + i + '"><td class="mono">' + t[0] + '</td><td>' + s.n + '. ' + s.name + '</td><td><span class="tag ' + s.t + '">' + s.t + '</span></td></tr>'; }).join(''); $('#nrc-note').textContent = NRC[n].note; }
+$$('.nrc-tabs button').forEach(function(b, i, all){ b.addEventListener('click', function(){ all.forEach(function(x){ x.setAttribute('aria-selected', x === b); }); showNRC(b.dataset.n); }); });
+showNRC('30188');
+
+/* ---------- apariciones ---------- */
+if(!reduce && 'IntersectionObserver' in window){
+  var io = new IntersectionObserver(function(es){ es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } }); }, {threshold:.2});
+  $$('.rv, .tl li').forEach(function(el){ io.observe(el); });
+} else { $$('.rv, .tl li').forEach(function(el){ el.classList.add('in'); }); }
+
+/* ---------- scroll: progreso, menu, linea de tiempo ---------- */
+var bar = $('#bar'), menu = $$('.menu a'), tl = $('#tl'), fill = $('#tl-fill');
+function onScroll(){
+  var h = document.documentElement, max = h.scrollHeight - h.clientHeight;
+  bar.style.width = (max > 0 ? h.scrollTop / max * 100 : 0) + '%';
+  var c = -1; menu.forEach(function(a, i){ var t = $(a.getAttribute('href')); if(t && t.getBoundingClientRect().top < 120){ c = i; } });
+  menu.forEach(function(a, i){ a.classList.toggle('active', i === c); });
+  var r = tl.getBoundingClientRect(), p = (innerHeight * .6 - r.top) / r.height;
+  fill.style.height = (Math.max(0, Math.min(1, p)) * 100) + '%';
+}
+addEventListener('scroll', onScroll, {passive:true}); onScroll();
+})();
+</script>
+apps-fileview.texmex_20261022.00_p3
+Semana10_VR_AR_CASO_BANCO_ANDINO.html
+Mostrando Semana10_VR_AR_CASO_BANCO_ANDINO.html.
