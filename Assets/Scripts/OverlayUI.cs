@@ -11,6 +11,8 @@ public class ReportData
     public Color color;
     public string mode, time, signals;
     public (string name, string status, Color statusColor, string detail)[] evidence;
+    public string mailFrom, mailAddr, mailSubject, mailVector;                         // vista del correo sospechoso
+    public (string time, string origin, string action, string result, Color color)[] access;   // historial de accesos
 }
 
 /// Interfaz táctil: joystick, zona de mirar, botones Sentarse/Levantarse/Abrir puerta, mensajes y reporte final.
@@ -95,14 +97,15 @@ public class OverlayUI : MonoBehaviour
         sitBtn.SetActive(seat.NearSeat && !debrief.activeSelf);
         standBtn.SetActive(seated && seat.CanStand && !debrief.activeSelf);
         doorBtn.SetActive(door && door.NearDoor && !door.IsOpen && !seated && !debrief.activeSelf);
-        hintPanel.SetActive(ShowHints && !string.IsNullOrEmpty(hint.text) && !debrief.activeSelf);
+        bool cctvOn = cctv && cctv.activeSelf;
+        hintPanel.SetActive(ShowHints && !string.IsNullOrEmpty(hint.text) && !debrief.activeSelf && !cctvOn);
         // Sentado: guía más compacta en el borde superior para no tapar el monitor
         hintRT.sizeDelta = seated ? new Vector2(1100, 54) : new Vector2(1200, 90);
         hintRT.anchoredPosition = new Vector2(0, seated ? -2 : -24);
         hint.rectTransform.sizeDelta = seated ? new Vector2(1060, 48) : new Vector2(1160, 76);
         hint.rectTransform.anchoredPosition = new Vector2(20, seated ? -3 : -8);
         hint.fontSizeMax = seated ? 24 : 32;
-        bool show = !seated && !debrief.activeSelf;
+        bool show = !seated && !debrief.activeSelf && !cctvOn;
         controls.SetActive(show);
         if (!show) MobileInput.Stick = Vector2.zero;
     }
@@ -110,6 +113,31 @@ public class OverlayUI : MonoBehaviour
     public void SetHint(string s) { hint.text = s; }
 
     public void SetVisible(bool v) { if (canvasGO) canvasGO.SetActive(v); }
+
+    // ------------------------------------------------- CÁMARA DE SEGURIDAD (contagio)
+    GameObject cctv; TextMeshProUGUI cctvLabel, cctvDot;
+
+    /// Muestra la etiqueta de cámara de seguridad ("● REC  CÁM. 04 · CONTABILIDAD"); null la oculta.
+    public void SetCctv(string label)
+    {
+        if (!cctv)
+        {
+            var p = UIKit.Panel(canvasRT, "CCTV", 0, 0, 760, 64, new Color(0, 0, 0, 0.55f), false);
+            Place(p, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, 40));
+            cctvDot = UIKit.Label(p, "●", 18, 10, 30, 44, 30, new Color(1f, 0.2f, 0.2f), TextAlignmentOptions.Center);
+            UIKit.Label(p, "REC", 50, 18, 60, 30, 22, new Color(1f, 0.3f, 0.3f), TextAlignmentOptions.TopLeft, true);
+            cctvLabel = UIKit.Label(p, "", 116, 16, 630, 34, 26, Color.white, TextAlignmentOptions.TopLeft, true);
+            cctvLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            cctv = p.gameObject;
+        }
+        cctv.SetActive(label != null);
+        if (label != null) cctvLabel.text = label + "   " + System.DateTime.Now.ToString("HH:mm:ss");
+    }
+
+    void LateUpdate()
+    {
+        if (cctv && cctv.activeSelf) cctvDot.alpha = (Time.unscaledTime % 1f) < 0.6f ? 1f : 0.15f;
+    }
 
     // ------------------------------------------------------------------ REPORTE
     static void Reload(SimMode quickMode, bool skipMenu)
@@ -147,22 +175,46 @@ public class OverlayUI : MonoBehaviour
             UIKit.Label(b, stats[i].Item2, 24, 42, 430, 54, 42, Color.white, TextAlignmentOptions.TopLeft, true);
         }
 
-        // Evidencias auditadas
-        UIKit.Label(d, "EVIDENCIAS AUDITADAS", 56, 352, 800, 28, 20, new Color(0.97f, 0.8f, 0.36f), TextAlignmentOptions.TopLeft, true).characterSpacing = 5;
+        // Evidencias auditadas (columna izquierda)
+        var gold = new Color(0.97f, 0.8f, 0.36f);
+        UIKit.Label(d, "EVIDENCIAS AUDITADAS", 56, 352, 800, 28, 20, gold, TextAlignmentOptions.TopLeft, true).characterSpacing = 5;
         for (int i = 0; i < r.evidence.Length; i++)
         {
             var e = r.evidence[i];
-            var row = UIKit.Panel(d, "Row", 56, 390 + i * 124, 1448, 112, new Color(1, 1, 1, 0.04f), false);
-            var num = UIKit.Panel(row, "Num", 22, 30, 52, 52, new Color(1, 1, 1, 0.08f), false);
+            var row = UIKit.Panel(d, "Row", 56, 390 + i * 124, 960, 112, new Color(1, 1, 1, 0.04f), false);
+            var num = UIKit.Panel(row, "Num", 18, 30, 48, 48, new Color(1, 1, 1, 0.08f), false);
             num.GetComponent<Image>().sprite = UIKit.Circle();
-            UIKit.Label(num, (i + 1).ToString(), 0, 0, 52, 52, 26, Color.white, TextAlignmentOptions.Center, true);
-            UIKit.Label(row, e.name, 100, 16, 990, 36, 28, Color.white, TextAlignmentOptions.TopLeft, true);
-            var det = UIKit.Label(row, e.detail, 100, 54, 990, 52, 21, Soft);
-            det.enableAutoSizing = true; det.fontSizeMin = 15; det.fontSizeMax = 21;
-            var chip = UIKit.Panel(row, "Chip", 1110, 32, 316, 48, e.statusColor, false);
-            var ct = UIKit.Label(chip, e.status, 10, 0, 296, 48, 22, Color.white, TextAlignmentOptions.Center, true);
-            ct.characterSpacing = 2; ct.enableAutoSizing = true; ct.fontSizeMin = 14; ct.fontSizeMax = 22;
+            UIKit.Label(num, (i + 1).ToString(), 0, 0, 48, 48, 24, Color.white, TextAlignmentOptions.Center, true);
+            UIKit.Label(row, e.name, 84, 14, 560, 34, 26, Color.white, TextAlignmentOptions.TopLeft, true);
+            var det = UIKit.Label(row, e.detail, 84, 50, 590, 58, 19, Soft);
+            det.enableAutoSizing = true; det.fontSizeMin = 13; det.fontSizeMax = 19;
+            var chip = UIKit.Panel(row, "Chip", 690, 32, 252, 46, e.statusColor, false);
+            var ct = UIKit.Label(chip, e.status, 8, 0, 236, 46, 20, Color.white, TextAlignmentOptions.Center, true);
+            ct.characterSpacing = 1; ct.enableAutoSizing = true; ct.fontSizeMin = 12; ct.fontSizeMax = 20;
             ct.textWrappingMode = TextWrappingModes.NoWrap;
+        }
+
+        // Columna derecha: correo sospechoso + historial de accesos
+        UIKit.Label(d, "CORREO SOSPECHOSO", 1046, 352, 460, 28, 20, gold, TextAlignmentOptions.TopLeft, true).characterSpacing = 5;
+        var mail = UIKit.Panel(d, "Mail", 1046, 390, 458, 150, new Color(0.96f, 0.97f, 0.99f), false);
+        UIKit.Panel(mail, "Bar", 0, 0, 458, 6, r.color, false);
+        UIKit.Label(mail, r.mailSubject, 16, 14, 426, 50, 19, new Color(0.1f, 0.12f, 0.16f), TextAlignmentOptions.TopLeft, true).overflowMode = TextOverflowModes.Ellipsis;
+        UIKit.Label(mail, "De: " + r.mailFrom, 16, 64, 426, 22, 15, new Color(0.25f, 0.28f, 0.34f)).overflowMode = TextOverflowModes.Ellipsis;
+        UIKit.Label(mail, "<" + r.mailAddr + ">", 16, 86, 426, 22, 15, new Color(0.75f, 0.16f, 0.14f)).overflowMode = TextOverflowModes.Ellipsis;
+        UIKit.Label(mail, "Vector: " + r.mailVector, 16, 112, 426, 30, 14, new Color(0.35f, 0.38f, 0.45f)).overflowMode = TextOverflowModes.Ellipsis;
+
+        UIKit.Label(d, "HISTORIAL DE ACCESOS", 1046, 556, 460, 28, 20, gold, TextAlignmentOptions.TopLeft, true).characterSpacing = 5;
+        var log = UIKit.Panel(d, "Log", 1046, 592, 458, 170, new Color(1, 1, 1, 0.04f), false);
+        for (int i = 0; i < r.access.Length && i < 4; i++)
+        {
+            var a = r.access[i];
+            float y = 8 + i * 40;
+            UIKit.Label(log, a.time, 12, y + 4, 60, 24, 16, Color.white, TextAlignmentOptions.TopLeft, true);
+            var o = UIKit.Label(log, a.origin + "\n<size=80%>" + a.action + "</size>", 76, y, 228, 38, 14, Soft);
+            o.textWrappingMode = TextWrappingModes.NoWrap; o.overflowMode = TextOverflowModes.Ellipsis;
+            var rc = UIKit.Panel(log, "Res", 312, y + 4, 136, 28, a.color, false);
+            var rt = UIKit.Label(rc, a.result, 4, 0, 128, 28, 13, Color.white, TextAlignmentOptions.Center, true);
+            rt.enableAutoSizing = true; rt.fontSizeMin = 9; rt.fontSizeMax = 13; rt.textWrappingMode = TextWrappingModes.NoWrap;
         }
 
         var lesson = UIKit.Label(d, r.lesson, 56, 770, 1448, 72, 21, new Color(0.85f, 0.9f, 0.96f));

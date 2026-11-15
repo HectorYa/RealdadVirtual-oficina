@@ -29,6 +29,11 @@ public static class CyberSimBuilder
     static TextMeshPro wallStatus;
     static System.Random rng;
 
+    // Pantallas agrupadas por nodo del mapa de red (se infectan en orden); el resto va a "screens" (alerta general)
+    static readonly List<Renderer>[] nodeGroups = new List<Renderer>[10];
+    static List<Renderer> sink;
+    static void AddScreen(Renderer r) => (sink ?? screens).Add(r);
+
     // ------------------------------------------------------------------ BUILD
     [MenuItem("Cyber Sim/1 - Construir escena")]
     public static void Build()
@@ -46,6 +51,8 @@ public static class CyberSimBuilder
         foreach (var d in new[] { "Materials", "Textures", "Scenes", "Settings" }) Directory.CreateDirectory("Assets/" + d);
         AssetDatabase.Refresh();
         strips.Clear(); leds.Clear(); screens.Clear(); lights.Clear(); beacons.Clear();
+        for (int i = 0; i < nodeGroups.Length; i++) nodeGroups[i] = new List<Renderer>();
+        sink = null;
         rng = new System.Random(7);
 
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -58,12 +65,12 @@ public static class CyberSimBuilder
 
         var hall = Group(env, "1_HallVentanillas", Vector3.zero);
         BuildHallDecor(hall);
-        BuildTellers(hall);
+        sink = nodeGroups[8]; BuildTellers(hall); sink = null;          // nodo CAJAS
         BuildReception(hall);
         BuildPlatform(hall);
         BuildWaitingArea(hall);
         BuildLounge(hall);
-        BuildAtm(hall);
+        sink = nodeGroups[9]; BuildAtm(hall); sink = null;              // nodo CAJEROS ATM
         BuildVault(hall);
         BuildQueue(hall);
         BuildPlants(hall);
@@ -74,12 +81,18 @@ public static class CyberSimBuilder
 
         var ti = Group(env, "3_ZonaTI", Vector3.zero);
         var door = BuildTIRoom(ti);
+        sink = nodeGroups[0];                                            // nodo TU PC
         BuildMainStation(ti, out var marker, out var seatPoint, out var screenAnchor);
+        sink = null;
         var map = BuildInfectionMap(ti);
+        map.nodeScreens = new InfectionMap.ScreenGroup[nodeGroups.Length];
+        for (int i = 0; i < nodeGroups.Length; i++) map.nodeScreens[i] = new InfectionMap.ScreenGroup { renderers = nodeGroups[i].ToArray() };
+        map.screenInfected = mScreenAlert;
 
         BuildBeacons(env);
         BuildPostFX();
         BuildPlayerAndManagers(seatPoint, screenAnchor, marker, door, map);
+        MarkStatic(env);
 
         AssetDatabase.SaveAssets();
         EditorSceneManager.SaveScene(scene, ScenePath);
@@ -87,12 +100,31 @@ public static class CyberSimBuilder
         Debug.Log("Cyber Sim: escena lista. Pulsa Play. Teclado: WASD, clic derecho para mirar, E para abrir la puerta / sentarte.");
     }
 
+    // Optimización móvil: la geometría fija se marca para "static batching" (Unity la combina en pocas mallas).
+    // Se excluyen la puerta (gira), las balizas (rotan), el mapa (el paquete se mueve), el marcador y los textos TMP.
+    static void MarkStatic(Transform env)
+    {
+        int n = 0;
+        foreach (var r in env.GetComponentsInChildren<Renderer>(true))
+        {
+            var go = r.gameObject;
+            if (go.GetComponent<TMP_Text>() != null) continue;
+            bool dynamic = false;
+            for (var t = go.transform; t != null && t != env; t = t.parent)
+                if (t.name == "PuertaZonaTI" || t.name == "Beacon" || t.name == "MapaDeRed" || t.name == "SeatMarker") { dynamic = true; break; }
+            if (dynamic) continue;
+            GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.BatchingStatic);
+            n++;
+        }
+        Debug.Log($"Cyber Sim: {n} objetos marcados para static batching.");
+    }
+
     [MenuItem("Cyber Sim/2 - Preparar para Android (móvil)")]
     public static void SetupAndroid()
     {
-        PlayerSettings.productName = "CyberSim Banco";
+        CyberSimBuildTools.ApplyBranding();
         PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft;
-        PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "com.demo.cybersim");
+        PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, CyberSimBuildTools.AndroidId);
         PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
         PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
         PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel25;
@@ -351,7 +383,7 @@ public static class CyberSimBuilder
     {
         var g = Group(p, n, pos, yaw);
         Prim("Body", g, Vector3.zero, new Vector3(w + 0.05f, h + 0.05f, 0.05f), mDark);
-        screens.Add(Prim("Screen", g, new Vector3(0f, 0f, -0.027f), new Vector3(w, h, 0.005f), mScreenTV).GetComponent<Renderer>());
+        AddScreen(Prim("Screen", g, new Vector3(0f, 0f, -0.027f), new Vector3(w, h, 0.005f), mScreenTV).GetComponent<Renderer>());
         if (text != null)
         {
             var t = T3(g, "Text", new Vector3(0f, 0f, -0.032f), text, h * 0.16f, tc, new Vector2(w * 0.92f, h * 0.9f));
@@ -366,7 +398,7 @@ public static class CyberSimBuilder
         Prim("Base", m, new Vector3(0f, 0.01f, 0.03f), new Vector3(0.22f, 0.02f, 0.16f), mDark);
         Prim("Neck", m, new Vector3(0f, 0.12f, 0.05f), new Vector3(0.05f, 0.22f, 0.03f), mDark);
         Prim("Body", m, new Vector3(0f, 0.12f + h * 0.5f, 0.02f), new Vector3(w, h, 0.03f), mDark);
-        screens.Add(Prim("Screen", m, new Vector3(0f, 0.12f + h * 0.5f, 0.004f), new Vector3(w - 0.03f, h - 0.03f, 0.004f), mScreen).GetComponent<Renderer>());
+        AddScreen(Prim("Screen", m, new Vector3(0f, 0.12f + h * 0.5f, 0.004f), new Vector3(w - 0.03f, h - 0.03f, 0.004f), mScreen).GetComponent<Renderer>());
     }
 
     // Escritorio de oficina completo. El usuario se sienta del lado local -Z mirando a +Z.
@@ -682,7 +714,7 @@ public static class CyberSimBuilder
         Prim("Trim", k, new Vector3(0f, 1.11f, 0f), new Vector3(0.4f, 0.03f, 0.32f), mGold);
         var head = Group(k, "Head", new Vector3(0f, 1.3f, 0f)); head.localEulerAngles = new Vector3(20f, 0f, 0f);
         Prim("Body", head, Vector3.zero, new Vector3(0.42f, 0.34f, 0.06f), mDark);
-        screens.Add(Prim("Screen", head, new Vector3(0f, 0f, -0.032f), new Vector3(0.36f, 0.28f, 0.005f), mScreen).GetComponent<Renderer>());
+        AddScreen(Prim("Screen", head, new Vector3(0f, 0f, -0.032f), new Vector3(0.36f, 0.28f, 0.005f), mScreen).GetComponent<Renderer>());
         T3(head, "Text", new Vector3(0f, 0f, -0.037f), "TOME SU\nTURNO", 0.06f, Color.white, new Vector2(0.34f, 0.26f));
         Prim("Ticket", k, new Vector3(0f, 0.95f, -0.16f), new Vector3(0.06f, 0.08f, 0.005f), mPaper);
     }
@@ -700,7 +732,7 @@ public static class CyberSimBuilder
             for (int i = -1; i <= 1; i += 2)
             {
                 Prim("Monitor", d, new Vector3(3.5f, 1.02f, z + i * 0.33f), new Vector3(0.04f, 0.36f, 0.56f), mDark, rot: new Vector3(0, -i * 10f, 0));
-                screens.Add(Prim("Screen", d, new Vector3(3.525f, 1.02f, z + i * 0.33f), new Vector3(0.01f, 0.31f, 0.51f), mScreen, rot: new Vector3(0, -i * 10f, 0)).GetComponent<Renderer>());
+                AddScreen(Prim("Screen", d, new Vector3(3.525f, 1.02f, z + i * 0.33f), new Vector3(0.01f, 0.31f, 0.51f), mScreen, rot: new Vector3(0, -i * 10f, 0)).GetComponent<Renderer>());
             }
             Prim("Keyboard", d, new Vector3(3.75f, 0.78f, z), new Vector3(0.14f, 0.02f, 0.45f), mDark);
             // Contadora de billetes, impresora de comprobantes y sello
@@ -803,7 +835,7 @@ public static class CyberSimBuilder
     {
         var a = Group(hall, "CajeroAutomatico", Vector3.zero);
         Prim("Body", a, new Vector3(5.72f, 0.95f, 0.9f), new Vector3(0.55f, 1.9f, 0.9f), mNavy, col: true);
-        Prim("Screen", a, new Vector3(5.42f, 1.45f, 0.9f), new Vector3(0.03f, 0.42f, 0.6f), mScreen);
+        AddScreen(Prim("Screen", a, new Vector3(5.42f, 1.45f, 0.9f), new Vector3(0.03f, 0.42f, 0.6f), mScreen).GetComponent<Renderer>());
         Prim("Keypad", a, new Vector3(5.43f, 1.05f, 0.9f), new Vector3(0.10f, 0.04f, 0.3f), mMetal, rot: new Vector3(0f, 0f, -12f));
         Prim("Slot", a, new Vector3(5.42f, 0.76f, 0.9f), new Vector3(0.04f, 0.06f, 0.34f), mGold);
         Prim("Top", a, new Vector3(5.72f, 1.94f, 0.9f), new Vector3(0.6f, 0.06f, 0.95f), mGold);
@@ -940,6 +972,7 @@ public static class CyberSimBuilder
         float czA = (HallL + 0.05f + 25f) * 0.5f, czB = (25f + CorrEnd - 0.05f) * 0.5f;
 
         // CONTABILIDAD
+        sink = nodeGroups[4];   // nodo CONTABILIDAD
         var c = Group(p, "Of_Contabilidad", new Vector3(-3.6f, 0f, czA), 180f);
         OfficeLight(c);
         OfficeDesk(c, new Vector3(0.9f, 0f, -1.5f), -90f, mWood, 2);
@@ -954,6 +987,7 @@ public static class CyberSimBuilder
         Clock(c, new Vector3(0.5f, 2.4f, -3.40f), 180f);
 
         // CRÉDITOS Y PRÉSTAMOS
+        sink = nodeGroups[5];   // nodo CRÉDITOS
         var k = Group(p, "Of_Creditos", new Vector3(3.6f, 0f, czA), 0f);
         OfficeLight(k);
         OfficeDesk(k, new Vector3(1.0f, 0f, 0.2f), -90f, mWood, 1);
@@ -971,6 +1005,7 @@ public static class CyberSimBuilder
         Plant(k, new Vector3(2.0f, 0f, 3.0f));
 
         // GERENCIA
+        sink = nodeGroups[6];   // nodo GERENCIA
         var g = Group(p, "Of_Gerencia", new Vector3(-3.6f, 0f, czB), 180f);
         OfficeLight(g);
         OfficeDesk(g, new Vector3(1.1f, 0f, -1.4f), -90f, mWood, 1, mLeather, 1.8f);
@@ -990,6 +1025,7 @@ public static class CyberSimBuilder
         Plant(g, new Vector3(2.0f, 0f, 3.1f));
 
         // RECURSOS HUMANOS
+        sink = nodeGroups[7];   // nodo RR.HH.
         var h = Group(p, "Of_RRHH", new Vector3(3.6f, 0f, czB), 0f);
         OfficeLight(h);
         OfficeDesk(h, new Vector3(0.9f, 0f, -1.6f), -90f, mWood, 1);
@@ -999,6 +1035,7 @@ public static class CyberSimBuilder
         foreach (float x in new[] { -0.3f, 0.2f }) FilingCabinet(h, new Vector3(x, 0f, 3.1f), 0f);
         Poster(h, "Capacitacion", new Vector3(2.37f, 1.6f, 2.5f), 90f, "CAPACITACIÓN", "Seguridad de la información\n\nJueves 10:00 · Sala 2\nAsistencia obligatoria", 0.8f, 1.0f, mRedPaint);
         Plant(h, new Vector3(-1.3f, 0f, 3.0f));
+        sink = null;
     }
 
     // ------------------------------------------------------------- 3. ZONA TI
@@ -1110,7 +1147,7 @@ public static class CyberSimBuilder
         foreach (int i in new[] { -1, 1 })
         {
             Prim("SideMonitor", s, new Vector3(i * 0.85f, 1.02f, 0f), new Vector3(0.5f, 0.3f, 0.03f), mDark, rot: new Vector3(0, i * -20f, 0));
-            screens.Add(Prim("SideScreen", s, new Vector3(i * 0.85f, 1.02f, -0.02f), new Vector3(0.46f, 0.26f, 0.01f), mScreen, rot: new Vector3(0, i * -20f, 0)).GetComponent<Renderer>());
+            AddScreen(Prim("SideScreen", s, new Vector3(i * 0.85f, 1.02f, -0.02f), new Vector3(0.46f, 0.26f, 0.01f), mScreen, rot: new Vector3(0, i * -20f, 0)).GetComponent<Renderer>());
         }
 
         Chair(s, new Vector3(0, 0, -1.3f), 0f);

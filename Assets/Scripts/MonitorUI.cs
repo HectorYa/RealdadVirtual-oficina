@@ -23,11 +23,6 @@ public class MonitorUI : MonoBehaviour
     public bool Finished { get; private set; }
     public SimMode Mode { get; private set; }
 
-    public const string PhishFromName = "RR.HH. Corporativo";
-    public const string PhishAddr = "rrhh@banco-andlno.com";
-    public const string PhishSubject = "Urgente: Revisión de Nómina y Bonos";
-    public const string PhishLink = "https://nomina-bancoandino.com.verificar-pago.net";
-    public const string PhishFile = "Nomina_Bonos_2026.xlsx";
     public const string NotePassword = "Admin2026*";
     public const string AttackerIP = "185.220.101.47";
 
@@ -44,13 +39,9 @@ public class MonitorUI : MonoBehaviour
     static readonly Color TaskC = new Color(0.035f, 0.06f, 0.11f, 0.95f);
     static readonly Color NavyC = new Color(0.05f, 0.1f, 0.2f);
 
-    static readonly string[] SignalNames = { "Remitente falso", "Urgencia artificial", "Enlace / archivo (Sandbox)" };
-    static readonly string[] SignalText =
-    {
-        "El dominio «banco-andlno.com» imita a «bancoandino.com»: cambia la «i» por una «l». RR.HH. siempre escribe desde @bancoandino.com.",
-        "Amenaza con suspender el pago HOY para que actúes sin pensar. Ningún área real presiona por correo con plazos de horas.",
-        "El Sandbox abrió el Excel en un entorno aislado: contiene una macro oculta que descarga malware. El enlace lleva a «verificar-pago.net», no al portal oficial.",
-    };
+    /// Escenario de phishing de esta jornada (aleatorio).
+    static PhishScenario S => SimSession.Scenario;
+    static bool IsFile(PhishScenario s) => s.element == PhishElement.Attachment || s.element == PhishElement.Image;
 
     class Mail { public string from, addr, subject, body, time, folder; public bool read, phishing; }
     class Win { public string id; public RectTransform rt; public bool max, min; public Vector2 pos, size; }
@@ -61,7 +52,9 @@ public class MonitorUI : MonoBehaviour
     TextMeshProUGUI clock, dateTxt, loginClock, loginDate, loginStatus, shieldTxt;
     Image shieldDot;
     GameObject mailBadge, mailTag, taskMailDot;
-    RectTransform postIt;
+    RectTransform postIt, postItFrame;
+    readonly List<float> iconLastClick = new List<float>();
+    readonly List<Image> iconSel = new List<Image>();
     readonly Dictionary<string, Win> wins = new Dictionary<string, Win>();
     readonly Dictionary<string, Image> taskInd = new Dictionary<string, Image>();
     readonly List<DeskIcon> icons = new List<DeskIcon>();
@@ -125,6 +118,9 @@ public class MonitorUI : MonoBehaviour
         }
         // Rectángulos de alerta: los pendientes laten en naranja
         float pulse = 0.55f + 0.45f * Mathf.Sin(Time.time * 5f);
+        if (postItFrame && !Infected)
+            foreach (var im in postItFrame.GetComponentsInChildren<Image>())
+                if (im.name == "Edge") im.color = new Color(Amber.r, Amber.g, Amber.b, pulse);
         for (int i = 0; i < 3; i++)
         {
             if (!hl[i] || found[i]) continue;
@@ -136,6 +132,8 @@ public class MonitorUI : MonoBehaviour
     // Nombres en español sin depender de la configuración regional del dispositivo
     static readonly string[] Days = { "Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado" };
     static readonly string[] Months = { "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre" };
+
+    static TextMeshProUGUI NoWrap(TextMeshProUGUI t) { t.textWrappingMode = TextWrappingModes.NoWrap; t.overflowMode = TextOverflowModes.Ellipsis; return t; }
 
     // Botón transparente que se ilumina al pasar el cursor (el tinte multiplica el color base blanco)
     static void HoverTint(Button b, float a)
@@ -163,7 +161,7 @@ public class MonitorUI : MonoBehaviour
         bool defense = Mode == SimMode.Defense;
         phishMail = new Mail
         {
-            from = PhishFromName, addr = PhishAddr, subject = PhishSubject, time = DateTime.Now.ToString("HH:mm"),
+            from = S.fromName, addr = S.fromAddr, subject = S.subject, time = DateTime.Now.ToString("HH:mm"),
             folder = defense ? "quarantine" : "inbox", phishing = true,
         };
         mails.Insert(0, phishMail);
@@ -171,11 +169,11 @@ public class MonitorUI : MonoBehaviour
         if (defense)
         {
             mailTag.SetActive(true);
-            Toast("Filtro de correo", "Se retuvo 1 mensaje sospechoso en CUARENTENA: «" + PhishSubject + "».", Amber, () => { OpenMail(); SelectFolder("quarantine"); });
+            Toast("Filtro de correo", "Se retuvo 1 mensaje sospechoso en CUARENTENA: «" + S.subject + "».", Amber, () => { OpenMail(); SelectFolder("quarantine"); });
         }
         else
         {
-            Toast("Nuevo correo recibido", PhishFromName + " — «" + PhishSubject + "»", Accent, () => { OpenMail(); ShowMail(phishMail); });
+            Toast("Nuevo correo recibido", S.fromName + " — «" + S.subject + "»", Accent, () => { OpenMail(); ShowMail(phishMail); });
         }
         if (wins.ContainsKey("mail")) { RefreshNav(); RefreshList(); }
         SimSession.TimerStart = Time.time;
@@ -291,8 +289,11 @@ public class MonitorUI : MonoBehaviour
         {
             var d = defs[i];
             float y = 20 + i * 106;
-            var b = UIKit.Btn(desktop, "", 14, y, 120, 100, Color.white, Color.white, 10, () => { if (loggedIn) d.open(); });
+            int idx = i;
+            var b = UIKit.Btn(desktop, "", 14, y, 120, 100, Color.white, Color.white, 10, () => IconClicked(idx, d.open));
             HoverTint(b, 0.15f);
+            var sel = UIKit.Panel(b.transform, "Selected", 0, 0, 120, 100, new Color(0.55f, 0.75f, 1f, 0.28f), false).GetComponent<Image>();
+            sel.enabled = false; iconSel.Add(sel); iconLastClick.Add(-10f);
             var holder = UIKit.Panel(b.transform, "Glyph", 0, 0, 120, 70, Color.clear, false);
             AppGlyph(holder, d.app, 30, 6, 60);
             var lb = UIKit.Label(b.transform, d.name, 0, 70, 120, 30, 16, Color.white, TextAlignmentOptions.Center);
@@ -388,6 +389,16 @@ public class MonitorUI : MonoBehaviour
         startMenu.gameObject.SetActive(false);
     }
 
+    // Como en Windows: doble clic abre (un clic selecciona). En el móvil basta un toque.
+    void IconClicked(int i, Action open)
+    {
+        if (!loggedIn) return;
+        bool dbl = Time.unscaledTime - iconLastClick[i] < 0.45f;
+        for (int k = 0; k < iconSel.Count; k++) iconSel[k].enabled = k == i;
+        if (Application.isMobilePlatform || dbl) { iconLastClick[i] = -10f; iconSel[i].enabled = false; open(); }
+        else iconLastClick[i] = Time.unscaledTime;
+    }
+
     void ToggleStart() { if (loggedIn) { startMenu.gameObject.SetActive(!startMenu.gameObject.activeSelf); startMenu.SetAsLastSibling(); } }
     void CloseStart() { if (startMenu) startMenu.gameObject.SetActive(false); }
 
@@ -465,10 +476,28 @@ public class MonitorUI : MonoBehaviour
         SetShield();
         OnModeSelected?.Invoke(mode);
         yield return new WaitForSeconds(0.8f);
+        string tip = Application.isMobilePlatform ? "" : " Haz doble clic en un icono para abrirlo.";
         if (mode == SimMode.Defense)
-            Toast("Seguridad", "Protección activa: filtro de correo, análisis en Sandbox y doble factor (MFA).", Green, null);
+            Toast("Seguridad", "Protección activa: filtro de correo, análisis en Sandbox y doble factor (MFA)." + tip, Green, null);
         else
-            Toast("Bienvenido", "Buenos días, Juan. Tienes una jornada normal por delante.", Accent, null);
+            Toast("Bienvenido", "Buenos días, Juan. Tienes una jornada normal por delante." + tip, Accent, null);
+        if (mode == SimMode.Defense) { yield return new WaitForSeconds(2.5f); PostItWarning(); }
+    }
+
+    // Modo Defensa: el sistema advierte por sí solo de la contraseña visible en la nota (RF-05)
+    void PostItWarning()
+    {
+        if (postItFrame || Finished) return;
+        postItFrame = Frame(desktop, "PostItRisk", W - 270, 18, 236, 188, Amber, 4f, new Color(1f, 0.6f, 0.1f, 0.06f));
+        postItFrame.localEulerAngles = new Vector3(0, 0, -3f);
+        postItFrame.GetComponent<Image>().raycastTarget = false;
+        postItFrame.SetSiblingIndex(postIt.GetSiblingIndex() + 1);
+        var badge = UIKit.Panel(postItFrame, "Badge", 206, -14, 34, 34, Amber, false);
+        badge.GetComponent<Image>().sprite = UIKit.Circle();
+        UIKit.Label(badge, "!", 0, 0, 34, 34, 24, Color.white, TextAlignmentOptions.Center, true);
+        var lbl = UIKit.Panel(postItFrame, "Risk", 18, 192, 200, 24, Amber, false);
+        UIKit.Label(lbl, "RIESGO: CLAVE VISIBLE", 0, 2, 200, 20, 13, Color.white, TextAlignmentOptions.Center, true);
+        Toast("Riesgo detectado", "Hay una contraseña visible en una nota adhesiva. Guárdala en el Gestor de Contraseñas y destruye el papel.", Amber, () => OpenBrowser(2), 9f);
     }
 
     // ============================================================= VENTANAS
@@ -607,11 +636,11 @@ public class MonitorUI : MonoBehaviour
                 var dot = UIKit.Panel(p, "N", 10, 102 + i * 28, 22, 22, found[i] ? Green : Amber, false);
                 dot.GetComponent<Image>().sprite = UIKit.Circle();
                 UIKit.Label(dot, (i + 1).ToString(), 0, 0, 22, 22, 13, Color.white, TextAlignmentOptions.Center, true);
-                UIKit.Label(p, SignalNames[i], 38, 104, 140, 22, 13, found[i] ? Green : Soft, TextAlignmentOptions.TopLeft, found[i]).rectTransform.anchoredPosition = new Vector2(38, -(104 + i * 28));
+                { var sn = UIKit.Label(p, S.signalNames[i], 38, 104 + i * 28, 142, 22, 12, found[i] ? Green : Soft, TextAlignmentOptions.TopLeft, found[i]); sn.textWrappingMode = TextWrappingModes.NoWrap; sn.overflowMode = TextOverflowModes.Ellipsis; }
             }
             explain = UIKit.Label(p, foundCount == 0 ? "Toca cada rectángulo resaltado en el mensaje para descubrir por qué es peligroso." : "", 10, 192, 166, 140, 12, Ink);
             explain.enableAutoSizing = true; explain.fontSizeMin = 9; explain.fontSizeMax = 13;
-            for (int i = 2; i >= 0; i--) if (found[i]) { explain.text = "<b>" + SignalNames[i] + ":</b> " + SignalText[i]; break; }
+            for (int i = 2; i >= 0; i--) if (found[i]) { explain.text = "<b>" + S.signalNames[i] + ":</b> " + S.signalText[i]; break; }
         }
         else timerNav = null;
     }
@@ -628,11 +657,11 @@ public class MonitorUI : MonoBehaviour
             var b = UIKit.Btn(mailList, "", 0, row * 80, 300, 78, m.read ? Gray : Color.white, Ink, 10, () => ShowMail(mm));
             if (m.phishing && m.folder == "quarantine") UIKit.Panel(b.transform, "Warn", 0, 0, 5, 78, Amber, false);
             else if (!m.read) UIKit.Panel(b.transform, "New", 0, 0, 4, 78, Accent, false);
-            UIKit.Label(b.transform, m.from, 14, 8, 210, 22, 16, Ink, TextAlignmentOptions.TopLeft, !m.read);
+            NoWrap(UIKit.Label(b.transform, m.from, 14, 8, 210, 22, 16, Ink, TextAlignmentOptions.TopLeft, !m.read));
             UIKit.Label(b.transform, m.time, 222, 8, 66, 22, 13, Soft, TextAlignmentOptions.TopRight);
-            UIKit.Label(b.transform, m.subject, 14, 32, 276, 22, 14, m.read ? Soft : Ink, TextAlignmentOptions.TopLeft, !m.read);
-            UIKit.Label(b.transform, m.phishing && m.folder == "quarantine" ? "Retenido por el filtro de seguridad" : Preview(m), 14, 54, 276, 20, 12,
-                m.phishing && m.folder == "quarantine" ? new Color(0.75f, 0.38f, 0f) : Soft);
+            NoWrap(UIKit.Label(b.transform, m.subject, 14, 32, 276, 22, 14, m.read ? Soft : Ink, TextAlignmentOptions.TopLeft, !m.read));
+            NoWrap(UIKit.Label(b.transform, m.phishing && m.folder == "quarantine" ? "Retenido por el filtro de seguridad" : Preview(m), 14, 54, 276, 20, 12,
+                m.phishing && m.folder == "quarantine" ? new Color(0.75f, 0.38f, 0f) : Soft));
             UIKit.Panel(b.transform, "Line", 0, 77, 300, 1, LineC, false);
             row++;
         }
@@ -641,7 +670,7 @@ public class MonitorUI : MonoBehaviour
 
     static string Preview(Mail m)
     {
-        if (m.phishing) return "Detectamos inconsistencias en el cálculo de su nómina...";
+        if (m.phishing) return S.preview;
         string s = m.body.Replace("\n", " ");
         return s.Length > 40 ? s.Substring(0, 40) + "..." : s;
     }
@@ -680,25 +709,37 @@ public class MonitorUI : MonoBehaviour
             oy = 50f;
             if (!inspecting && !Finished) StartInspection();
         }
-        UIKit.Label(mailPane, m.subject, 24, 12 + oy, 510, 56, 23, Ink, TextAlignmentOptions.TopLeft, true);
-        UIKit.Label(mailPane, $"<b>{m.from}</b>  <{m.addr}>", 24, 72 + oy, 510, 24, 16, Ink);
-        UIKit.Label(mailPane, "Para: juan.perez@bancoandino.com  ·  Hoy " + m.time, 24, 98 + oy, 510, 20, 13, Soft);
-        UIKit.Panel(mailPane, "Line", 24, 122 + oy, 512, 1, LineC, false);
-        UIKit.Label(mailPane, "Estimado colaborador:", 24, 132 + oy, 510, 24, 16, Ink);
-        UIKit.Label(mailPane, "Detectamos inconsistencias en el cálculo de su nómina y bono anual de este mes.", 24, 158 + oy, 510, 44, 16, Ink);
-        UIKit.Label(mailPane, "<b>Si no confirma sus datos HOY antes de las 17:00, el pago de su nómina y bono será SUSPENDIDO.</b>", 24, 206 + oy, 510, 50, 16, new Color(0.6f, 0.08f, 0.08f));
-        UIKit.Label(mailPane, "Revise el archivo adjunto y confirme sus datos en el portal:", 24, 262 + oy, 510, 22, 15, Ink);
-        var link = UIKit.Btn(mailPane, "", 20, 286 + oy, 520, 26, Color.white, Accent, 10, () => LinkClicked());
-        var lt = UIKit.Label(link.transform, "<u>" + PhishLink + "</u>", 4, 2, 512, 22, 15, Accent); lt.overflowMode = TextOverflowModes.Ellipsis;
+        var s = S;
+        float y = 12f + oy;
+        UIKit.Label(mailPane, m.subject, 24, y, 510, 56, 22, Ink, TextAlignmentOptions.TopLeft, true); y += 58f;
+        float senderY = y;
+        UIKit.Label(mailPane, $"<b>{m.from}</b>  <{m.addr}>", 24, y, 510, 24, 15, Ink).overflowMode = TextOverflowModes.Ellipsis; y += 26f;
+        UIKit.Label(mailPane, "Para: juan.perez@bancoandino.com  ·  Hoy " + m.time, 24, y, 510, 20, 13, Soft); y += 24f;
+        UIKit.Panel(mailPane, "Line", 24, y, 512, 1, LineC, false); y += 9f;
+        UIKit.Label(mailPane, s.greeting, 24, y, 510, 22, 15, Ink); y += 24f;
+        UIKit.Label(mailPane, s.intro, 24, y, 510, 42, 15, Ink); y += 44f;
 
-        // Adjunto
-        var att = UIKit.Panel(mailPane, "Attachment", 24, 318 + oy, 512, 58, quarantine ? new Color(1f, 0.95f, 0.95f) : Gray, false);
-        AppGlyph(att, "excel", 10, 11, 36);
-        UIKit.Label(att, PhishFile, 56, 8, 300, 22, 15, Ink, TextAlignmentOptions.TopLeft, true);
-        UIKit.Label(att, quarantine ? "<color=#C62828><b>Sandbox: MALICIOSO</b> · macro oculta</color>" : "Hoja de cálculo de Excel · 48 KB", 56, 30, 300, 20, 13, Soft);
-        if (quarantine) UIKit.Btn(att, "Bloqueado", 392, 12, 110, 34, new Color(0.85f, 0.86f, 0.88f), Soft, 15, () => DownloadClicked());
-        else UIKit.Btn(att, "Descargar", 392, 12, 110, 34, Accent, Color.white, 15, () => DownloadClicked());
-        UIKit.Label(mailPane, "Atentamente,\nRecursos Humanos Corporativo", 24, 384 + oy, 510, 44, 15, Ink);
+        float urgY = 0f, elemY = 0f, elemH = 0f;
+        void Urgency()
+        {
+            urgY = y;
+            UIKit.Label(mailPane, "<b>" + s.urgency + "</b>", 24, y + 2, 510, 46, 15, new Color(0.6f, 0.08f, 0.08f)); y += 54f;
+        }
+        void Element()
+        {
+            UIKit.Label(mailPane, s.beforeElement, 24, y, 510, 22, 14, Ink); y += 24f;
+            elemY = y - 2f;
+            float h = ElementBlock(s, y, quarantine);
+            y += h + 4f;
+            if (quarantine)
+            {
+                UIKit.Label(mailPane, "<b>" + s.scanVerdict + "</b>", 24, y, 510, 20, 13, new Color(0.78f, 0.16f, 0.14f)); y += 22f;
+            }
+            elemH = y - elemY;
+            y += 4f;
+        }
+        if (s.elementBeforeUrgency) { Element(); Urgency(); } else { Urgency(); Element(); }
+        UIKit.Label(mailPane, s.signature, 24, y, 510, 40, 14, Ink);
 
         // Barra inferior
         UIKit.Panel(mailPane, "BarLine", 0, 526, 560, 1, LineC, false);
@@ -710,15 +751,105 @@ public class MonitorUI : MonoBehaviour
             reportLbl = UIKit.Label(reportBtn.transform, "", 0, 0, 260, 36, 15, Color.white, TextAlignmentOptions.Center, true);
             UpdateReportButton();
             // Los 3 rectángulos sobresalientes (RF-03)
-            MakeHighlight(0, 14, 68 + oy, 532, 32);
-            MakeHighlight(1, 14, 202 + oy, 532, 56);
-            MakeHighlight(2, 14, 282 + oy, 532, 98);
+            MakeHighlight(0, 14, senderY - 4f, 532, 32);
+            MakeHighlight(1, 14, urgY - 2f, 532, 54);
+            MakeHighlight(2, 14, elemY - 2f, 532, elemH + 2f);
         }
         else
         {
             var rb = UIKit.Btn(mailPane, "Reportar phishing", 24, 536, 200, 36, new Color(0.9f, 0.93f, 0.97f), Ink, 15, () => Report());
             rb.GetComponentInChildren<TextMeshProUGUI>().fontStyle = FontStyles.Bold;
         }
+    }
+
+    // Dibuja el elemento malicioso del correo y devuelve su alto
+    float ElementBlock(PhishScenario s, float y, bool quarantine)
+    {
+        switch (s.element)
+        {
+            case PhishElement.Attachment:
+            {
+                float h = 0f;
+                if (!string.IsNullOrEmpty(s.linkText))
+                {
+                    var link = UIKit.Btn(mailPane, "", 20, y, 520, 24, Color.white, Accent, 10, () => ElementClicked(true));
+                    UIKit.Label(link.transform, "<u>" + s.linkText + "</u>", 4, 2, 512, 20, 14, Accent).overflowMode = TextOverflowModes.Ellipsis;
+                    h += 28f;
+                }
+                var att = UIKit.Panel(mailPane, "Attachment", 24, y + h, 512, 54, quarantine ? new Color(1f, 0.95f, 0.95f) : Gray, false);
+                string glyph = s.fileName.EndsWith(".xlsx") ? "excel" : (s.fileName.EndsWith(".zip") ? "docs" : "lockless");
+                if (glyph == "lockless") { var t = UIKit.Panel(att, "Doc", 12, 9, 30, 36, Color.white, false); UIKit.Panel(t, "Band", 0, 0, 30, 9, new Color(0.8f, 0.2f, 0.2f), false); }
+                else AppGlyph(att, glyph, 10, 9, 36);
+                UIKit.Label(att, s.fileName, 56, 7, 320, 22, 15, Ink, TextAlignmentOptions.TopLeft, true).overflowMode = TextOverflowModes.Ellipsis;
+                UIKit.Label(att, s.fileInfo, 56, 29, 320, 20, 12, Soft).overflowMode = TextOverflowModes.Ellipsis;
+                if (quarantine) UIKit.Btn(att, "Bloqueado", 392, 10, 110, 34, new Color(0.85f, 0.86f, 0.88f), Soft, 15, () => ElementClicked(false));
+                else UIKit.Btn(att, "Descargar", 392, 10, 110, 34, Accent, Color.white, 15, () => ElementClicked(false));
+                return h + 54f;
+            }
+            case PhishElement.Link:
+            {
+                var link = UIKit.Btn(mailPane, "", 20, y, 520, 24, Color.white, Accent, 10, () => ElementClicked(true));
+                UIKit.Label(link.transform, "<u>" + s.linkText + "</u>", 4, 2, 512, 20, 14, Accent).overflowMode = TextOverflowModes.Ellipsis;
+                return 26f;
+            }
+            case PhishElement.Button:
+            {
+                var b = UIKit.Btn(mailPane, s.linkText, 24, y, 300, 42, quarantine ? new Color(0.72f, 0.75f, 0.8f) : Accent, Color.white, 17, () => ElementClicked(true));
+                b.GetComponentInChildren<TextMeshProUGUI>().fontStyle = FontStyles.Bold;
+                return 42f;
+            }
+            case PhishElement.Image:
+            {
+                var img = UIKit.Btn(mailPane, "", 24, y, 330, 96, Color.white, Ink, 10, () => ElementClicked(false));
+                var card = UIKit.Panel(img.transform, "Receipt", 0, 0, 330, 96, new Color(0.97f, 0.98f, 0.97f), false);
+                UIKit.Panel(card, "Head", 0, 0, 330, 24, new Color(0.1f, 0.55f, 0.32f), false);
+                UIKit.Label(card, "TRANSFERENCIA EXITOSA", 10, 4, 310, 18, 13, Color.white, TextAlignmentOptions.TopLeft, true);
+                UIKit.Label(card, "Operación N.º 0921  ·  S/ 18 450,00\nBeneficiario: BANCO ANDINO S.A.\nFecha: hoy  ·  Estado: PENDIENTE DE CONFIRMAR", 10, 30, 310, 62, 12, Ink);
+                if (quarantine)
+                {
+                    var blk = UIKit.Panel(card, "Blocked", 0, 0, 330, 96, new Color(0.15f, 0.15f, 0.18f, 0.82f), false);
+                    UIKit.Label(blk, "IMAGEN BLOQUEADA\nenlaza a un archivo .jpg.html", 0, 26, 330, 50, 14, Color.white, TextAlignmentOptions.Center, true);
+                }
+                return 96f;
+            }
+            case PhishElement.QR:
+            {
+                var b = UIKit.Btn(mailPane, "", 24, y, 96, 96, Color.white, Ink, 10, () => ElementClicked(true));
+                var qr = UIKit.Panel(b.transform, "QR", 4, 4, 88, 88, Color.white, false);
+                qr.gameObject.GetComponent<Image>().sprite = QrSprite();
+                UIKit.Label(mailPane, quarantine ? "Lector de QR del filtro:\n<color=#C62828><b>" + s.RealHost + "</b></color>" : "Validación obligatoria\nde doble factor (MFA)", 136, y + 24, 380, 50, 14, Ink);
+                return 96f;
+            }
+        }
+        return 0f;
+    }
+
+    // Código QR decorativo (patrón aleatorio con los 3 cuadros de posición)
+    static Sprite qrSprite;
+    static Sprite QrSprite()
+    {
+        if (qrSprite) return qrSprite;
+        const int n = 25;
+        var t = new Texture2D(n, n, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
+        var rnd = new System.Random(2026);
+        for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+                t.SetPixel(x, y, rnd.Next(0, 2) == 0 ? Color.black : Color.white);
+        void Finder(int ox, int oy)
+        {
+            for (int y = -1; y < 8; y++)
+                for (int x = -1; x < 8; x++)
+                {
+                    int px = ox + x, py = oy + y;
+                    if (px < 0 || py < 0 || px >= n || py >= n) continue;
+                    bool ring = x == 0 || y == 0 || x == 6 || y == 6, core = x >= 2 && x <= 4 && y >= 2 && y <= 4;
+                    bool inside = x >= 0 && y >= 0 && x <= 6 && y <= 6;
+                    t.SetPixel(px, py, inside && (ring || core) ? Color.black : Color.white);
+                }
+        }
+        Finder(0, 0); Finder(n - 7, 0); Finder(0, n - 7);
+        t.Apply();
+        return qrSprite = Sprite.Create(t, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f));
     }
 
     void MakeHighlight(int i, float x, float y, float w, float h)
@@ -746,7 +877,7 @@ public class MonitorUI : MonoBehaviour
         inspecting = true; inspectStart = Time.time;
         SimSession.TimerStart = Time.time;
         RefreshNav();
-        Toast("Sandbox", "Análisis completado: «" + PhishFile + "» contiene una macro oculta MALICIOSA. Descarga bloqueada.", Red, null, 9f);
+        Toast(IsFile(S) ? "Sandbox" : (S.element == PhishElement.QR ? "Lector de QR" : "Análisis de enlaces"), S.scanToast, Red, null, 9f);
         OnInspectionStarted?.Invoke();
     }
 
@@ -771,7 +902,8 @@ public class MonitorUI : MonoBehaviour
         if (foundCount == 1)
             Toast("Doble factor (MFA)", $"Se bloqueó un intento de inicio de sesión en tu cuenta desde {AttackerIP}. Sin tu segundo factor, nadie puede entrar.", Green, null, 9f);
         else if (foundCount == 2)
-            Toast("Gestor de Contraseñas", "No completará tus claves en «verificar-pago.net»: solo autocompleta en dominios verificados de bancoandino.com.", Green, () => OpenBrowser(2), 9f);
+            Toast("Gestor de Contraseñas", (string.IsNullOrEmpty(S.RealHost) ? "No completará tus claves en sitios falsos" : "No completará tus claves en «" + S.RealHost + "»") +
+                ": solo autocompleta en dominios verificados de bancoandino.com.", Green, () => OpenBrowser(2), 9f);
         OnSignalFound?.Invoke(foundCount);
         if (foundCount >= 3) OnAllSignalsFound?.Invoke();
     }
@@ -805,22 +937,17 @@ public class MonitorUI : MonoBehaviour
         OnTimeUp?.Invoke();
     }
 
-    void LinkClicked()
-    {
-        if (Finished) return;
-        if (Mode == SimMode.Defense) { OpenBrowser(3); return; }
-        StartCoroutine(Breach("enlace"));
-    }
-
-    void DownloadClicked()
+    /// Clic sobre el elemento malicioso. asLink = enlace / botón / QR (web falsa); si no, archivo descargable.
+    void ElementClicked(bool asLink)
     {
         if (Finished) return;
         if (Mode == SimMode.Defense)
         {
-            Toast("Sandbox", "Descarga bloqueada: «" + PhishFile + "» ejecuta una macro que descarga malware. El archivo se mantiene aislado.", Red, null, 8f);
+            if (asLink) OpenBrowser(3);
+            else Toast("Sandbox", "Descarga bloqueada: «" + S.fileName + "» es malicioso. El archivo se mantiene aislado.", Red, null, 8f);
             return;
         }
-        StartCoroutine(Breach("adjunto"));
+        StartCoroutine(Breach(asLink));
     }
 
     // ============================================================ NAVEGADOR
@@ -861,12 +988,12 @@ public class MonitorUI : MonoBehaviour
                 break;
             case 2:
                 urlTxt.text = "<color=#1E8E3E>[candado]</color>  https://claves.bancoandino.com";
-                if (def) Page("GESTOR DE CONTRASEÑAS · Activo", "Bóveda protegida con doble factor (MFA).\n\n- 12 credenciales guardadas y cifradas.\n- Autocompletado SOLO en dominios verificados: *.bancoandino.com\n- En sitios falsos (p. ej. verificar-pago.net) el gestor no escribe ninguna clave.\n\nRecomendación: guarda aquí la clave de tu nota adhesiva y destruye el papel.", Green);
+                if (def) Page("GESTOR DE CONTRASEÑAS · Activo", "Bóveda protegida con doble factor (MFA).\n\n- 12 credenciales guardadas y cifradas.\n- Autocompletado SOLO en dominios verificados: *.bancoandino.com\n- En sitios falsos o con dominios parecidos al nuestro, el gestor no escribe ninguna clave.\n\nRecomendación: guarda aquí la clave de tu nota adhesiva y destruye el papel.", Green);
                 else Page("GESTOR DE CONTRASEÑAS · No instalado", "Este equipo no tiene un gestor de contraseñas configurado.\n\nLas claves se escriben a mano en cualquier sitio, incluso en páginas falsas, y no hay doble factor (MFA) que bloquee un acceso con una clave robada.", Red);
                 break;
             case 3:
-                urlTxt.text = "<color=#C62828>[no seguro]</color>  " + PhishLink;
-                Page("SITIO BLOQUEADO POR LA POLÍTICA DE SEGURIDAD", "Este enlace del correo en cuarentena apunta a «verificar-pago.net», un dominio que no pertenece a Banco Andino y que fue reportado por suplantación.\n\nGestor de Contraseñas: no se autocompletará ninguna credencial en este sitio.\nMFA: aunque alguien obtuviera tu clave, no podría entrar sin tu segundo factor.", Red);
+                urlTxt.text = "<color=#C62828>[no seguro]</color>  " + S.realUrl;
+                Page("SITIO BLOQUEADO POR LA POLÍTICA DE SEGURIDAD", "El enlace del correo en cuarentena apunta a «" + S.RealHost + "», un dominio que no pertenece a Banco Andino y que fue reportado por suplantación.\n\nGestor de Contraseñas: no se autocompletará ninguna credencial en este sitio.\nMFA: aunque alguien obtuviera tu clave, no podría entrar sin tu segundo factor.", Red);
                 break;
         }
     }
@@ -950,22 +1077,29 @@ public class MonitorUI : MonoBehaviour
     }
 
     // ===================================================== INFECCIÓN (MODO ATAQUE)
-    IEnumerator Breach(string vector)
+    /// viaWeb = el usuario abrió la web falsa (enlace / botón / QR) y escribió su clave; si no, abrió un archivo malicioso.
+    IEnumerator Breach(bool viaWeb)
     {
         if (Infected || Finished) yield break;
         Infected = true; Finished = true;
-        SimSession.Infected = true; SimSession.Vector = vector;
+        var s = S;
+        SimSession.Infected = true; SimSession.CredentialTheft = viaWeb;
         CloseStart();
 
-        if (vector == "enlace")
+        if (viaWeb)
         {
-            // Página falsa del "Portal de Nómina": el usuario escribe la clave de su post-it
+            if (s.element == PhishElement.QR)
+            {
+                Toast("Celular", "Escaneaste el código QR: se abrió «" + s.RealHost + "» y la misma página se abre en tu PC para continuar.", Soft, null, 5f);
+                yield return new WaitForSeconds(1.2f);
+            }
+            // Página falsa: el usuario escribe la clave de su post-it
             OpenBrowser(0);
-            urlTxt.text = "<color=#C62828>[no seguro]</color>  " + PhishLink;
+            urlTxt.text = "<color=#C62828>[no seguro]</color>  " + s.realUrl;
             foreach (Transform c in browserPage) Destroy(c.gameObject);
             UIKit.Panel(browserPage, "Head", 0, 0, 940, 70, NavyC, false);
-            UIKit.Label(browserPage, "BANCO ANDINO  ·  Portal de Nómina", 30, 18, 880, 40, 26, Color.white, TextAlignmentOptions.TopLeft, true);
-            UIKit.Label(browserPage, "Confirme sus datos para liberar el pago de su nómina y bono.", 260, 100, 420, 50, 18, Ink, TextAlignmentOptions.Center);
+            UIKit.Label(browserPage, s.fakeSite, 30, 18, 880, 40, 26, Color.white, TextAlignmentOptions.TopLeft, true);
+            UIKit.Label(browserPage, s.fakePrompt, 230, 100, 480, 50, 18, Ink, TextAlignmentOptions.Center);
             UIKit.Label(browserPage, "Usuario", 280, 160, 380, 22, 15, Soft);
             var u = UIKit.Panel(browserPage, "User", 280, 184, 380, 40, Gray, false);
             UIKit.Label(u, "juan.perez", 12, 9, 350, 24, 17, Ink);
@@ -981,12 +1115,14 @@ public class MonitorUI : MonoBehaviour
             yield return new WaitForSeconds(0.4f);
             got.text = "Verificando...";
             yield return new WaitForSeconds(1.2f);
+            Toast("Inicio de sesión", "Nuevo inicio de sesión en tu cuenta desde " + AttackerIP + " (ubicación desconocida).", Red, null, 6f);
+            yield return new WaitForSeconds(1.0f);
         }
         else
         {
-            // Descarga y apertura del Excel con macro
+            // Descarga y apertura del archivo malicioso
             var dl = UIKit.Panel(popupLayer, "Download", 340, 250, 600, 170, new Color(0.96f, 0.96f, 0.97f));
-            UIKit.Label(dl, "Descargando " + PhishFile, 24, 18, 560, 26, 19, Ink, TextAlignmentOptions.TopLeft, true);
+            UIKit.Label(dl, "Descargando " + s.fileName, 24, 18, 560, 26, 19, Ink, TextAlignmentOptions.TopLeft, true);
             var track = UIKit.Panel(dl, "Track", 24, 66, 552, 22, new Color(0.8f, 0.82f, 0.85f), false);
             var fill = UIKit.Panel(track, "Fill", 0, 0, 0, 22, new Color(0.08f, 0.5f, 0.27f), false);
             var st = UIKit.Label(dl, "0%", 24, 100, 552, 26, 17, Soft, TextAlignmentOptions.Center);
@@ -995,7 +1131,7 @@ public class MonitorUI : MonoBehaviour
                 float k = t / 1.8f; fill.sizeDelta = new Vector2(552 * k, 22); st.text = Mathf.RoundToInt(k * 100) + "%";
                 yield return null;
             }
-            st.text = "Abriendo en Excel... Habilitando contenido (macros)";
+            st.text = s.openingText;
             yield return new WaitForSeconds(1.0f);
             Destroy(dl.gameObject);
         }
@@ -1003,7 +1139,7 @@ public class MonitorUI : MonoBehaviour
         // Ventanas emergentes de error del sistema
         string[] errs =
         {
-            "Excel.exe ha dejado de funcionar.\nEl programa se cerró de forma inesperada.",
+            viaWeb ? "Se instaló un componente remoto sin tu autorización.\nEl atacante entró con tu contraseña." : "El programa dejó de funcionar.\nSe cerró de forma inesperada.",
             "Error 0x80070570: el archivo o directorio está dañado y no se puede leer.",
             "Acceso denegado: un proceso desconocido está modificando tus archivos.",
         };
@@ -1033,7 +1169,7 @@ public class MonitorUI : MonoBehaviour
         }
         var stamp = UIKit.Panel(postIt, "Stamp", 10, 60, 200, 46, new Color(0.85f, 0.1f, 0.1f, 0.92f), false);
         stamp.localEulerAngles = new Vector3(0, 0, 12f);
-        UIKit.Label(stamp, "LEÍDA POR EL MALWARE", 0, 10, 200, 28, 15, Color.white, TextAlignmentOptions.Center, true);
+        UIKit.Label(stamp, viaWeb ? "CLAVE ROBADA" : "LEÍDA POR EL MALWARE", 0, 10, 200, 28, 15, Color.white, TextAlignmentOptions.Center, true);
         yield return new WaitForSeconds(0.8f);
 
         // Fallo general
@@ -1060,14 +1196,24 @@ public class MonitorUI : MonoBehaviour
         var timer = UIKit.Label(m, "", 740, 420, 480, 200, 40, new Color(1f, 0.2f, 0.2f), TextAlignmentOptions.Center, true);
         UIKit.Label(m, "SIMULACIÓN EDUCATIVA - ESTO NO ES UN ATAQUE REAL", 0, 676, W, 30, 20, new Color(1, 1, 1, 0.6f), TextAlignmentOptions.Center);
 
-        string[] lines =
-        {
-            "> Macro ejecutada desde " + PhishFile + " ............. OK",
-            "> Conexión remota establecida desde " + AttackerIP,
-            "> Leyendo nota adhesiva del escritorio: \"" + NotePassword + "\" ..... OK",
-            "> Inicio de sesión como juan.perez (sin MFA) ............ OK",
-            "> Propagando a los equipos de la red del banco .......... EN CURSO",
-        };
+        var s = S;
+        string[] lines = SimSession.CredentialTheft
+            ? new[]
+            {
+                "> Credenciales capturadas en " + s.RealHost + ": juan.perez / " + NotePassword,
+                "> Inicio de sesión remoto desde " + AttackerIP + " (sin MFA) ...... OK",
+                "> Instalando acceso remoto en la estación TI-01 ............ OK",
+                "> Robando correos y archivos compartidos .................... OK",
+                "> Propagando a los equipos de la red del banco .............. EN CURSO",
+            }
+            : new[]
+            {
+                "> Código ejecutado desde " + s.fileName + " ............ OK",
+                "> Conexión remota establecida desde " + AttackerIP,
+                "> Leyendo nota adhesiva del escritorio: \"" + NotePassword + "\" ..... OK",
+                "> Inicio de sesión como juan.perez (sin MFA) ............ OK",
+                "> Propagando a los equipos de la red del banco .......... EN CURSO",
+            };
         foreach (var l in lines) { term.text += l + "\n"; yield return new WaitForSeconds(0.6f); }
 
         float files = 0, recs = 0, pcs = 0, sec = 72f * 3600f;
@@ -1078,8 +1224,8 @@ public class MonitorUI : MonoBehaviour
             pcs = Mathf.MoveTowards(pcs, 10f, Time.deltaTime * 0.8f);
             stats.text = $"Archivos cifrados: {files:N0}\nRegistros de clientes robados: {recs:N0}\nEquipos infectados: {pcs:0} / 10";
             sec -= Time.deltaTime * 900f;
-            int s = Mathf.Max(0, (int)sec);
-            timer.text = $"DATOS CIFRADOS\nTiempo restante\n{s / 3600:00}:{(s / 60) % 60:00}:{s % 60:00}";
+            int secs = Mathf.Max(0, (int)sec);
+            timer.text = $"DATOS CIFRADOS\nTiempo restante\n{secs / 3600:00}:{(secs / 60) % 60:00}:{secs % 60:00}";
             warn.color = Color.Lerp(new Color(0.6f, 0, 0), new Color(1f, 0.2f, 0.2f), 0.5f + 0.5f * Mathf.Sin(Time.time * 6f));
             yield return null;
         }

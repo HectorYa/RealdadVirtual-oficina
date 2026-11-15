@@ -42,3 +42,7 @@ crashlytics-build.properties
 /[Aa]ssets/[Ss]treamingAssets/aa/*
 .DS_Store
 Thumbs.db
+
+# Capturas temporales del editor (las de documentación van en Docs/Capturas)
+/Assets/Screenshots/
+/Assets/Screenshots.meta

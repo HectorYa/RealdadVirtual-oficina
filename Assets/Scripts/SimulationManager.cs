@@ -27,10 +27,21 @@ public class SimulationManager : MonoBehaviour
     static readonly Color ChipGreen = new Color(0.12f, 0.58f, 0.32f);
     static readonly Color ChipAmber = new Color(0.85f, 0.5f, 0.05f);
 
-    const string Lesson =
-        "Las 3 señales de este correo: <b>remitente falso</b> («banco-andlno.com» en lugar de «bancoandino.com»), " +
-        "<b>urgencia artificial</b> («HOY antes de las 17:00 o se suspende el pago») y <b>enlace / archivo malicioso</b> " +
-        "(Excel con macro oculta y portal falso). Ante la duda: no abras, verifica por otro canal y pulsa «Reportar phishing».";
+    // Cámaras de seguridad por nodo del mapa (posición, punto al que miran, nombre)
+    static readonly (Vector3 pos, Vector3 look, string name)[] Cams =
+    {
+        (new Vector3(0f, 1.75f, 36.4f), new Vector3(0f, 2.0f, 39.9f), "CÁM. 01 · ZONA TI · MAPA DE RED"),
+        (new Vector3(0f, 1.75f, 36.4f), new Vector3(0f, 2.0f, 39.9f), "CÁM. 01 · ZONA TI · MAPA DE RED"),
+        (new Vector3(-2.6f, 2.7f, 33.2f), new Vector3(-5.2f, 1.2f, 37.5f), "CÁM. 02 · SALA DE SERVIDORES"),
+        (new Vector3(-2.6f, 2.7f, 33.2f), new Vector3(-5.2f, 1.2f, 37.5f), "CÁM. 02 · SALA DE SERVIDORES"),
+        (new Vector3(-5.7f, 2.7f, 24.6f), new Vector3(-4.2f, 0.9f, 21.4f), "CÁM. 04 · CONTABILIDAD"),
+        (new Vector3(5.7f, 2.7f, 24.6f), new Vector3(4.3f, 0.9f, 21.5f), "CÁM. 05 · CRÉDITOS Y PRÉSTAMOS"),
+        (new Vector3(-5.7f, 2.7f, 25.4f), new Vector3(-4.4f, 0.9f, 29.6f), "CÁM. 06 · GERENCIA"),
+        (new Vector3(5.7f, 2.7f, 25.4f), new Vector3(4.2f, 0.9f, 28.5f), "CÁM. 07 · RECURSOS HUMANOS"),
+        (new Vector3(5.4f, 2.7f, 12.3f), new Vector3(3.6f, 0.9f, 5.5f), "CÁM. 08 · VENTANILLAS"),
+        (new Vector3(2.2f, 2.4f, 0.5f), new Vector3(5.42f, 1.45f, 0.9f), "CÁM. 09 · CAJERO AUTOMÁTICO"),
+    };
+    Camera cctvCam;
 
     void Start()
     {
@@ -128,15 +139,48 @@ public class SimulationManager : MonoBehaviour
         seat.CanStand = true;
         seat.Stand();
         yield return new WaitForSeconds(1.5f);
-        overlay.SetHint("¡ALERTA! Mira el MAPA DE RED frente a ti: así se propaga el virus por los equipos del banco.");
+        overlay.SetHint("¡ALERTA! Sigue por las cámaras de seguridad cómo el virus salta de un equipo a otro del banco.");
         if (infectionMap)
         {
+            StartCctv();
+            infectionMap.OnNodeTargeted += CutTo;
             infectionMap.Play();
             while (!infectionMap.Done) yield return null;
-            yield return new WaitForSeconds(3f);
+            yield return new WaitForSeconds(1.5f);
+            CutTo(0);
+            yield return new WaitForSeconds(2f);
+            StopCctv();
         }
         else yield return new WaitForSeconds(12f);
         ShowReport();
+    }
+
+    // La propagación se sigue con una cámara de seguridad que salta al área atacada
+    void StartCctv()
+    {
+        var g = new GameObject("CCTV_Contagio");
+        cctvCam = g.AddComponent<Camera>();
+        cctvCam.nearClipPlane = 0.05f; cctvCam.farClipPlane = 60f; cctvCam.fieldOfView = 62f;
+        cctvCam.clearFlags = CameraClearFlags.SolidColor; cctvCam.backgroundColor = Color.black;
+        GameSettings.ApplyCamera(cctvCam);
+        if (player.cam) player.cam.GetComponent<Camera>().enabled = false;
+    }
+
+    void CutTo(int node)
+    {
+        if (!cctvCam) return;
+        var c = Cams[Mathf.Clamp(node, 0, Cams.Length - 1)];
+        cctvCam.transform.position = c.pos;
+        cctvCam.transform.rotation = Quaternion.LookRotation(c.look - c.pos);
+        overlay.SetCctv(c.name);
+    }
+
+    void StopCctv()
+    {
+        if (infectionMap) infectionMap.OnNodeTargeted -= CutTo;
+        if (cctvCam) Destroy(cctvCam.gameObject);
+        if (player.cam) player.cam.GetComponent<Camera>().enabled = true;
+        overlay.SetCctv(null);
     }
 
     // ----------------------------------------------------------- REPORTE / FIN
@@ -166,19 +210,46 @@ public class SimulationManager : MonoBehaviour
         string time = SimSession.Format(SimSession.Elapsed);
         string signals = defense ? $"{SimSession.SignalsFound} / 3" : (SimSession.Reported ? "Detectado sin ayuda" : "0 / 3");
         string pw = MonitorUI.NotePassword, ip = MonitorUI.AttackerIP;
-        var r = new ReportData { mode = defense ? "Defensa" : "Ataque", time = time, signals = signals, lesson = Lesson };
+        var sc = SimSession.Scenario;
+        var r = new ReportData
+        {
+            mode = defense ? "Defensa" : "Ataque", time = time, signals = signals,
+            lesson = "<b>Señales de este correo:</b> " + sc.lesson + " Ante la duda: no abras, verifica por otro canal y pulsa «Reportar phishing».",
+            mailFrom = sc.fromName, mailAddr = sc.fromAddr, mailSubject = sc.subject,
+            mailVector = sc.element switch
+            {
+                PhishElement.Attachment => "archivo adjunto «" + sc.fileName + "»",
+                PhishElement.Image => "imagen que descarga «" + sc.fileName + "»",
+                PhishElement.QR => "código QR hacia " + sc.RealHost,
+                _ => "enlace hacia " + sc.RealHost,
+            },
+        };
+        string login = System.DateTime.Now.AddMinutes(-Mathf.Max(1f, SimSession.Elapsed / 60f + 2f)).ToString("HH:mm");
+        string now = System.DateTime.Now.ToString("HH:mm");
+        var okLogin = (login, "PC TI-01 · red interna", "Inicio de sesión de juan.perez", "PERMITIDO", ChipGreen);
 
         if (SimSession.Infected)
         {
-            string via = SimSession.Vector == "enlace" ? "abrir el enlace del portal falso" : "descargar y abrir el Excel adjunto";
+            bool web = SimSession.CredentialTheft;
             r.title = "SISTEMA COMPROMETIDO";
             r.color = RedC;
-            r.subtitle = $"Al {via}, el malware tomó el control de tu PC y se propagó a los 10 equipos de la red del banco.";
+            r.subtitle = $"Al {sc.attackAction}, el atacante tomó el control de tu PC y la infección se propagó a los 10 equipos de la red del banco.";
             r.evidence = new[]
             {
-                ("Correo sospechoso", "EJECUTADO", ChipRed, $"«{MonitorUI.PhishSubject}» de {MonitorUI.PhishAddr}: se abrió el {(SimSession.Vector == "enlace" ? "enlace" : "adjunto")} y se ejecutó la macro maliciosa."),
-                ("Contraseña anotada en el escritorio", "ROBADA", ChipRed, $"El malware leyó la nota adhesiva «{pw}» (clave del correo y del sistema)."),
-                ("Registro de accesos", "ACCESO NO AUTORIZADO", ChipRed, $"{System.DateTime.Now:HH:mm} · inicio de sesión como juan.perez desde {ip} con la clave robada. Sin MFA, nada lo impidió."),
+                ("Correo sospechoso", web ? "ENGAÑO CONSUMADO" : "EJECUTADO", ChipRed,
+                    web ? $"«{sc.subject}»: escribiste tus credenciales en la web falsa «{sc.RealHost}»."
+                        : $"«{sc.subject}»: se abrió «{sc.fileName}» y se ejecutó el código malicioso."),
+                ("Contraseña anotada en el escritorio", "ROBADA", ChipRed,
+                    web ? $"Copiaste la clave «{pw}» de tu nota adhesiva en la página falsa: ahora la tiene el atacante."
+                        : $"El malware leyó la nota adhesiva «{pw}» (clave del correo y del sistema)."),
+                ("Registro de accesos", "NO AUTORIZADO", ChipRed, $"{now} · inicio de sesión como juan.perez desde {ip} con la clave robada. Sin MFA, nada lo impidió."),
+            };
+            r.access = new[]
+            {
+                okLogin,
+                (now, ip + " · ubicación desconocida", "Inicio de sesión con clave robada", "NO AUTORIZADO", ChipRed),
+                (now, ip + " · acceso remoto", "Lectura de correo y archivos", "NO AUTORIZADO", ChipRed),
+                (now, "Red interna del banco", "Propagación a 10 equipos", "COMPROMETIDO", ChipRed),
             };
         }
         else if (defense && SimSession.TimedOut)
@@ -192,6 +263,12 @@ public class SimulationManager : MonoBehaviour
                 ("Contraseña anotada en el escritorio", "EN RIESGO", ChipAmber, $"La clave «{pw}» sigue visible en una nota. Guárdala en el Gestor de Contraseñas."),
                 ("Registro de accesos", "PROTEGIDO", ChipGreen, $"MFA bloqueó un intento de inicio de sesión desde {ip}."),
             };
+            r.access = new[]
+            {
+                okLogin,
+                (now, "Filtro de correo", "Mensaje retenido en cuarentena", "AISLADO", ChipGreen),
+                (now, ip + " · ubicación desconocida", "Intento de inicio de sesión", "BLOQUEADO (MFA)", ChipGreen),
+            };
         }
         else if (defense)
         {
@@ -200,9 +277,16 @@ public class SimulationManager : MonoBehaviour
             r.subtitle = $"Identificaste las 3 señales y reportaste el phishing en {time} (límite 03:00). Se evitó la infección por completo.";
             r.evidence = new[]
             {
-                ("Correo sospechoso", "AISLADO Y REPORTADO", ChipGreen, "Retenido en cuarentena, analizado en Sandbox (macro maliciosa) y reportado al equipo de Seguridad (ticket #SOC-4040)."),
-                ("Contraseña anotada en el escritorio", "PROTEGIDA", ChipGreen, "El malware nunca se ejecutó. Recomendación: mover la clave al Gestor de Contraseñas y destruir la nota."),
+                ("Correo sospechoso", "AISLADO Y REPORTADO", ChipGreen, $"Retenido en cuarentena, analizado ({sc.scanVerdict}) y reportado al equipo de Seguridad (ticket #SOC-4040)."),
+                ("Contraseña anotada en el escritorio", "PROTEGIDA", ChipGreen, "Nunca se escribió en una web falsa ni la leyó un malware. El sistema advirtió del riesgo: muévela al Gestor de Contraseñas y destruye la nota."),
                 ("Registro de accesos", "PROTEGIDO", ChipGreen, $"MFA bloqueó 1 intento de inicio de sesión desde {ip}. Historial de accesos intacto."),
+            };
+            r.access = new[]
+            {
+                okLogin,
+                (now, "Filtro de correo", "Mensaje retenido en cuarentena", "AISLADO", ChipGreen),
+                (now, ip + " · ubicación desconocida", "Intento de inicio de sesión", "BLOQUEADO (MFA)", ChipGreen),
+                (now, "juan.perez · Seguridad", "Reporte de phishing #SOC-4040", "REGISTRADO", ChipGreen),
             };
         }
         else
@@ -212,9 +296,15 @@ public class SimulationManager : MonoBehaviour
             r.subtitle = $"Sin filtros ni ayudas, reconociste el engaño y reportaste el correo en {time}. ¡Excelente criterio!";
             r.evidence = new[]
             {
-                ("Correo sospechoso", "REPORTADO", ChipGreen, "No abriste el enlace ni el adjunto y lo enviaste al equipo de Seguridad."),
+                ("Correo sospechoso", "REPORTADO", ChipGreen, "No abriste el enlace ni el archivo y lo enviaste al equipo de Seguridad."),
                 ("Contraseña anotada en el escritorio", "EN RIESGO", ChipAmber, $"La clave «{pw}» sigue visible: cualquier malware futuro podría leerla."),
                 ("Registro de accesos", "SIN INCIDENTES", ChipGreen, "No se registraron accesos no autorizados (aunque esta PC no tiene MFA)."),
+            };
+            r.access = new[]
+            {
+                okLogin,
+                (now, "juan.perez · Seguridad", "Reporte de phishing #SOC-4040", "REGISTRADO", ChipGreen),
+                ("--:--", "Sin accesos externos", "Esta PC no tiene MFA activo", "SIN MFA", ChipAmber),
             };
         }
         overlay.ShowReport(r);
