@@ -61,6 +61,14 @@ public class InfectionMap : MonoBehaviour
         Done = true;
     }
 
+    /// Modo Defensa: el ataque se detuvo en el filtro; la red sigue intacta.
+    public void SetContained()
+    {
+        if (playing || !status) return;
+        status.text = $"AMENAZA CONTENIDA · 0 de {nodes.Length} equipos afectados";
+        status.color = new Color(0.3f, 1f, 0.55f);
+    }
+
     void SetStatus(int n)
     {
         if (!status) return;

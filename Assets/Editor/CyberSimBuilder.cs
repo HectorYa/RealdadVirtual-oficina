@@ -1104,7 +1104,7 @@ public static class CyberSimBuilder
 
         // Post-it con la contraseña pegado en el escritorio (mala práctica a propósito)
         Prim("PostIt", s, new Vector3(-0.42f, 0.783f, -0.33f), new Vector3(0.09f, 0.004f, 0.09f), mPostIt, rot: new Vector3(0f, 12f, 0f));
-        var pi = T3(s, "PostItText", new Vector3(-0.42f, 0.787f, -0.33f), "usuario: admin\nclave: Andino2024", 0.011f, new Color(0.1f, 0.15f, 0.5f), new Vector2(0.085f, 0.085f));
+        var pi = T3(s, "PostItText", new Vector3(-0.42f, 0.787f, -0.33f), "Clave correo:\nAdmin2026*", 0.011f, new Color(0.1f, 0.15f, 0.5f), new Vector2(0.085f, 0.085f));
         pi.transform.localEulerAngles = new Vector3(90f, 12f, 0f);
 
         foreach (int i in new[] { -1, 1 })
@@ -1262,6 +1262,7 @@ public static class CyberSimBuilder
         var sim = new GameObject("Simulation");
         var seat = sim.AddComponent<SeatInteraction>(); seat.seatPoint = seatPoint; seat.player = pc;
         seat.sitRadius = 1.2f;   // solo desde el lado de la silla, no a través del escritorio
+        seat.seatedCamLocal = new Vector3(0f, 1.10f, 0.69f);   // el monitor ocupa casi toda la pantalla al sentarse
         var audio = sim.AddComponent<SynthAudio>();
         var lighting = sim.AddComponent<LightingController>();
         lighting.strips = strips.ToArray(); lighting.screens = screens.ToArray(); lighting.leds = leds.ToArray();

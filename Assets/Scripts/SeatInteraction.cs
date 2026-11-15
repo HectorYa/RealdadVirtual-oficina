@@ -29,6 +29,18 @@ public class SeatInteraction : MonoBehaviour
     }
 
     public void Sit() { if (!busy && !Seated && NearSeat) StartCoroutine(SitRoutine()); }
+
+    /// Sienta al jugador de inmediato (reinicio rápido desde el reporte final).
+    public void SitInstant()
+    {
+        if (Seated) return;
+        player.controlsEnabled = false;
+        player.GetComponent<CharacterController>().enabled = false;
+        player.transform.SetPositionAndRotation(seatPoint.position, Quaternion.Euler(0f, seatPoint.eulerAngles.y, 0f));
+        player.cam.localPosition = seatedCamLocal; player.cam.localRotation = Quaternion.identity;
+        Seated = true; NearSeat = false;
+        OnSat?.Invoke();
+    }
     public void Stand() { if (!busy && Seated) StartCoroutine(StandRoutine()); }
 
     IEnumerator SitRoutine()

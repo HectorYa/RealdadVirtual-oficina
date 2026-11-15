@@ -39,6 +39,16 @@ public class DoorInteraction : MonoBehaviour
         StartCoroutine(Swing());
     }
 
+    /// Deja la puerta abierta sin animación (reinicio rápido).
+    public void OpenInstant()
+    {
+        if (IsOpen) return;
+        StopAllCoroutines(); busy = false;
+        transform.localRotation = Quaternion.Euler(0f, closedYaw + openAngle, 0f);
+        if (led && ledOpen) led.sharedMaterial = ledOpen;
+        IsOpen = true; NearDoor = false;
+    }
+
     IEnumerator Swing()
     {
         busy = true; NearDoor = false;

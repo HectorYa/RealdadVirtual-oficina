@@ -41,6 +41,7 @@ public static class UIKit
         rt.anchoredPosition = new Vector2(x, -y); rt.sizeDelta = new Vector2(w, h);
         var t = g.AddComponent<TextMeshProUGUI>();
         t.text = s; t.fontSize = size; t.color = c; t.alignment = a; t.raycastTarget = false;
+        t.textWrappingMode = TextWrappingModes.Normal;   // en este proyecto TMP no ajusta líneas por defecto
         t.fontStyle = bold ? FontStyles.Bold : FontStyles.Normal;
         return t;
     }

@@ -344,6 +344,7 @@ public class GameMenu : MonoBehaviour
         var rt = RT(p, "Text", aMin, aMax, pivot, pos, box);
         var t = rt.gameObject.AddComponent<TextMeshProUGUI>();
         t.text = s; t.fontSize = size; t.color = c; t.alignment = al; t.fontStyle = st; t.raycastTarget = false;
+        t.textWrappingMode = TextWrappingModes.Normal;
         return t;
     }
 
@@ -653,9 +654,11 @@ public class GameMenu : MonoBehaviour
         var c = Card(p, "HowCard", MR, new Vector2(-120, 10), new Vector2(780, 760));
         CardHeader(c, "02  /  INSTRUCCIONES", "CÓMO JUGAR");
         Txt(c, "OBJETIVO", 19, Gold, TL, TL, TL, new Vector2(56, -180), new Vector2(660, 28), TextAlignmentOptions.TopLeft, FontStyles.Bold).characterSpacing = 5;
-        Txt(c, "Recorre el banco, entra a la <b>Zona TI</b>, siéntate en la estación TI-01 y revisa tu correo. " +
-               "Detecta el correo de phishing y decide bien: <color=#7CFFA8>repórtalo</color> o descubre qué pasa si abres el adjunto.",
-            23, Soft, TL, TL, TL, new Vector2(56, -212), new Vector2(670, 110));
+        var obj = Txt(c, "Entra a la <b>Zona TI</b>, siéntate en la estación TI-01 y elige tu jornada: " +
+               "<color=#FF7A70><b>Modo Ataque</b></color> (PC sin protección: mira qué pasa si caes en el engaño) o " +
+               "<color=#7CFFA8><b>Modo Defensa</b></color> (cuarentena y guía: encuentra las 3 señales en menos de 3 minutos y pulsa «Reportar phishing»).",
+            23, Soft, TL, TL, TL, new Vector2(56, -212), new Vector2(670, 120));
+        obj.enableAutoSizing = true; obj.fontSizeMin = 16; obj.fontSizeMax = 23;
 
         Txt(c, "CONTROLES", 19, Gold, TL, TL, TL, new Vector2(56, -340), new Vector2(660, 28), TextAlignmentOptions.TopLeft, FontStyles.Bold).characterSpacing = 5;
         var rows = new (string key, string pc, string mobile)[]
@@ -688,7 +691,8 @@ public class GameMenu : MonoBehaviour
         Txt(c, "<b>CyberSim · Banco Andino</b> es un simulador educativo para aprender a reconocer correos de " +
                "<color=#F7CC5C>phishing</color> y a entender cómo un <color=#FF7A70>malware</color> puede propagarse por toda la red de una entidad financiera " +
                "a partir de un solo clic.\n\n" +
-               "La experiencia recorre un hall de ventanillas, las oficinas administrativas y la Zona TI, donde ocurre el incidente.",
+               "Compara dos jornadas: <b>Modo Ataque</b>, sin protección, y <b>Modo Defensa</b>, con filtro de cuarentena, Sandbox, " +
+               "gestor de contraseñas, MFA y guía visual. Al final, un reporte de auditoría muestra qué pasó con el correo, la contraseña anotada y los accesos.",
             24, Soft, TL, TL, TL, new Vector2(56, -185), new Vector2(670, 300));
         var warn = Img(c, "Notice", new Color(1f, 0.8f, 0.36f, 0.08f), TL, TL, TL, new Vector2(56, -480), new Vector2(668, 110));
         Img(warn.transform, "Bar", Gold, BL, TL, ML, Vector2.zero, new Vector2(4, 0));

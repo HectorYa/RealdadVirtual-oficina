@@ -8,7 +8,16 @@
 
 1. **Hall de ventanillas**: cajas, plataforma de atención, sala de espera, cajero automático y bóveda.
 2. **Pasillo de oficinas**: Contabilidad, Créditos y Préstamos, Gerencia y Recursos Humanos, con afiches de concientización.
-3. **Zona TI**: puerta con lector de tarjeta, sala de servidores y la estación TI-01, donde llega el correo de phishing. Si se abre el adjunto, un mapa de red muestra cómo la infección se propaga por todo el banco.
+3. **Zona TI**: puerta con lector de tarjeta, sala de servidores y la estación TI-01, una PC corporativa realista (inicio de sesión, escritorio, barra de tareas, correo, navegador, documentos, Excel, papelera y un post-it con la clave).
+
+## Modos de jornada
+
+Al iniciar sesión en la PC, el colaborador elige:
+
+- **Modo Ataque** (sin protección ni ayudas): llega el correo «Urgente: Revisión de Nómina y Bonos» con un Excel adjunto y un enlace. Si los abre, se abre un portal falso, aparecen errores del sistema, los iconos se cifran, el malware lee la clave del post-it y la infección se propaga por el mapa de red del banco.
+- **Modo Defensa** (filtro, Sandbox, gestor de contraseñas y MFA): el correo queda en **Cuarentena**. Al abrirlo se dibujan **3 rectángulos** (remitente falso, urgencia y enlace/archivo analizado en Sandbox) que hay que pulsar en menos de **3 minutos** antes de usar «Reportar phishing».
+
+Al final se muestra un **reporte de auditoría** (RF-05) con el estado del correo, de la contraseña anotada y del registro de accesos (robado/comprometido o protegido), el tiempo y las señales detectadas.
 
 Incluye menú principal (configuración de volumen, sensibilidad, calidad gráfica y guía en pantalla), menú de pausa y controles para PC y Android.
 
