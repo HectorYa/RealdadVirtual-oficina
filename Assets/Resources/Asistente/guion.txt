@@ -1,0 +1,46 @@
+intro_1|¡Hola! Bienvenido al Banco Andino. Soy tu asistente de seguridad y te voy a acompañar durante toda tu jornada.
+intro_2|Para empezar, recorre la zona de ventanillas y camina hacia el pasillo del fondo.
+hall_idle_1|¿Sigues por aquí? El pasillo de oficinas está al fondo del banco. ¡Te espero allá!
+hall_idle_2|Vaya, parece que te gusta mucho la entrada. Tranquilo, el banco no se va a ir... pero tus correos te están esperando.
+hall_idle_3|Creo que no me expliqué bien. Camina hacia el fondo, pasando las ventanillas, hasta llegar al pasillo.
+pasillo|Este es el pasillo de oficinas: Contabilidad, Créditos, Gerencia y Recursos Humanos. Al fondo está la puerta de la Zona TI.
+pasillo_idle_1|Vaya, parece que te gustan mucho las oficinas. La Zona TI está al final del pasillo, ¿eh?
+pasillo_idle_2|¿Sabías que muchos robos de información empiezan con una puerta abierta? Nunca dejes entrar a nadie detrás de ti sin su tarjeta.
+pasillo_idle_3|Sigue derecho hasta el fondo del pasillo. La puerta de la Zona TI es la que tiene el lector de tarjetas.
+puerta|Llegaste a la Zona TI. Pasa tu tarjeta para abrir la puerta.
+puerta_idle|Creo que no me entendiste muy bien. Pulsa el botón Abrir puerta para pasar tu tarjeta.
+acceso|¡Listo, acceso concedido! Ahora siéntate en la estación TI uno, la que está brillando.
+asiento_idle_1|Tu puesto es la estación TI uno. Acércate a la silla que brilla y siéntate.
+asiento_idle_2|Dato curioso: la mayoría de los ataques no rompen sistemas, engañan a personas. Por eso estás entrenando hoy.
+asiento_idle_3|Recuerda: tienes que sentarte frente al computador para empezar tu jornada.
+elegir_modo|Muy bien. Ahora elige tu jornada. En Modo Ataque tu computador no tiene protección. En Modo Defensa tendrás filtro de correo, sandbox y doble factor.
+elegir_idle|Elige un modo para iniciar sesión. Si es tu primera vez, te recomiendo empezar por el Modo Defensa.
+ataque_inicio|Modo Ataque. Hoy tu computador no tiene ninguna protección, así que todo depende de ti. Trabaja con normalidad... y con mucha atención.
+ataque_correo|Te llegó un correo nuevo. Léelo con calma antes de hacer cualquier cosa.
+ataque_idle_1|Tienes un correo sin leer en tu bandeja de entrada. Ábrelo desde el ícono del correo.
+ataque_idle_2|Tómate tu tiempo. ¿Quién te escribe? ¿Qué te pide? ¿Por qué tanta prisa?
+ataque_idle_3|Si algo no te convence, puedes reportarlo. Ante la duda, mejor no hagas clic.
+ataque_infectado|Uy... uy, uy. Parece que estamos en problemas. Ese correo era una trampa.
+ataque_llamar_ti|Voy a avisar de inmediato al equipo de TI y al centro de seguridad. Mira las cámaras: el virus está saltando de un equipo a otro.
+ataque_propagacion|Contabilidad, Créditos, Gerencia... Sin protección, un solo clic basta para comprometer toda la red del banco.
+ataque_reportado|¡Excelente! Sin filtros ni ayudas, reconociste el engaño. Eso es tener muy buen criterio.
+final_infectado|Tranquilo, para eso es la simulación. Revisa el reporte y luego prueba el Modo Defensa para ver cómo se evita.
+defensa_inicio|Modo Defensa. Tu computador tiene filtro de correo, sandbox y doble factor. Trabaja con normalidad y revisa tu correo.
+defensa_cuarentena|¡Atención! El filtro retuvo un correo sospechoso en cuarentena. Abre el correo y revísalo.
+defensa_idle_1|El correo en cuarentena te está esperando. Abre el correo y entra a la carpeta Cuarentena.
+defensa_inspeccion|Ahora encuentra las tres señales de peligro. Toca los rectángulos resaltados del mensaje. Tienes tres minutos.
+senal_1|¡Bien! Primera señal encontrada. Lee la explicación y busca la siguiente.
+senal_2|¡Muy bien, ya van dos! Solo te falta una.
+senal_3|¡Tres de tres! Ahora pulsa Reportar phishing para terminar.
+defensa_pista|Una pista: fíjate en la dirección del remitente, en las frases que te apuran, y en el enlace o el archivo.
+defensa_idle_reporte|Ya encontraste todo. Solo falta pulsar el botón verde, Reportar phishing.
+defensa_mitad|Te queda la mitad del tiempo. ¡Tú puedes!
+defensa_30s|¡Quedan treinta segundos! Concéntrate en las señales que te faltan.
+defensa_bloqueado|¡Cuidado! Ese era justo el elemento peligroso. Menos mal que el filtro lo bloqueó.
+defensa_tiempo|Se acabó el tiempo. El filtro te protegió, pero la próxima vez intenta encontrar las señales más rápido.
+defensa_reportado|¡Lo lograste! Ataque detenido a tiempo. Así se protege al banco.
+dato_1|Dato curioso: los atacantes cambian una sola letra del dominio para que no lo notes. Por ejemplo, escriben andlino en lugar de andino.
+dato_2|¿Sabías que el área de TI nunca te va a pedir tu contraseña por correo?
+dato_3|Un archivo que parece un documento, pero termina en punto e, equis, e, en realidad es un programa. ¡Ojo con las dobles extensiones!
+dato_4|Tener tu contraseña en una nota adhesiva es como dejar la llave pegada en la puerta. Mejor usa un gestor de contraseñas.
+dato_5|El doble factor es como un segundo candado: aunque roben tu clave, no pueden entrar sin él.

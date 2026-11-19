@@ -17,7 +17,9 @@ public class SimulationManager : MonoBehaviour
     [Range(3f, 30f)] public float mailDelay = 8f;
     public float corridorStartZ = 18.3f;
 
-    bool mailScheduled, ended;
+    bool mailScheduled, ended, phishSeen;
+    VoiceGuide voice;
+    float inspectT0 = -1f; int timeWarn;
     int stage;      // 0 hall, 1 pasillo, 2 frente a la puerta, 3 puerta abierta
 
     static readonly Color RedC = new Color(1f, 0.32f, 0.3f);
@@ -45,21 +47,59 @@ public class SimulationManager : MonoBehaviour
 
     void Start()
     {
+        voice = GetComponent<VoiceGuide>();
+        if (!voice) voice = gameObject.AddComponent<VoiceGuide>();
+        monitor.OnPhishOpened += OnPhishOpened;
+        monitor.OnThreatBlocked += () => voice.Say("defensa_bloqueado", true);
         overlay.SetHint("Bienvenido al Banco Andino. Recorre el hall de ventanillas y avanza hacia el pasillo del fondo.");
         seat.OnSat += OnSat;
         if (door) door.OnOpened += OnDoorOpened;
         monitor.OnModeSelected += OnModeSelected;
         monitor.OnMalwareExecuted += OnMalware;
         monitor.OnReported += OnReported;
-        monitor.OnInspectionStarted += () => overlay.SetHint("Inspección guiada: toca los 3 rectángulos resaltados del mensaje. Tienes 3 minutos.");
-        monitor.OnSignalFound += n => { if (n < 3) overlay.SetHint($"Señal encontrada ({n}/3). Lee la explicación y busca la siguiente."); };
-        monitor.OnAllSignalsFound += () => overlay.SetHint("¡3 de 3 señales! Pulsa REPORTAR PHISHING para terminar.");
+        monitor.OnInspectionStarted += () =>
+        {
+            overlay.SetHint("Inspección guiada: toca los 3 rectángulos resaltados del mensaje. Tienes 3 minutos.");
+            inspectT0 = Time.time; timeWarn = 0;
+            voice.Say("defensa_inspeccion", true);
+            voice.SetIdle(40f, 50f, false, "defensa_pista");
+        };
+        monitor.OnSignalFound += n =>
+        {
+            if (n < 3) overlay.SetHint($"Señal encontrada ({n}/3). Lee la explicación y busca la siguiente.");
+            voice.Say("senal_" + Mathf.Clamp(n, 1, 3), true);
+        };
+        monitor.OnAllSignalsFound += () =>
+        {
+            overlay.SetHint("¡3 de 3 señales! Pulsa REPORTAR PHISHING para terminar.");
+            inspectT0 = -1f;
+            voice.SetIdle(20f, 25f, false, "defensa_idle_reporte");
+        };
         monitor.OnTimeUp += OnTimeUp;
 
         // "Probar el otro modo" desde el reporte: aparece sentado y entra directo
         var quick = SimSession.QuickRestartMode;
         SimSession.QuickRestartMode = SimMode.None;
         if (quick != SimMode.None) StartCoroutine(QuickStart(quick));
+        else StartCoroutine(Intro());
+    }
+
+    // Saludo de la asistente cuando el jugador sale del menú principal
+    IEnumerator Intro()
+    {
+        while (!GameMenu.IsPlaying) yield return null;
+        yield return new WaitForSeconds(1.2f);
+        if (stage > 0 || seat.Seated) yield break;
+        voice.Say("intro_1");
+        voice.Say("intro_2");
+        voice.SetIdle(35f, 40f, false, "hall_idle_1", "hall_idle_2", "hall_idle_3");
+    }
+
+    void OnPhishOpened()
+    {
+        if (phishSeen || monitor.Mode != SimMode.Attack) return;
+        phishSeen = true;
+        voice.SetIdle(40f, 45f, true, "ataque_idle_2", "ataque_idle_3");
     }
 
     IEnumerator QuickStart(SimMode mode)
@@ -73,16 +113,28 @@ public class SimulationManager : MonoBehaviour
 
     void Update()
     {
+        if (audioFx) audioFx.DuckAlarm(voice && voice.Busy);
+        // Avisos de tiempo de la inspección guiada (3 min)
+        if (inspectT0 > 0f && !monitor.Finished)
+        {
+            float t = Time.time - inspectT0;
+            if (timeWarn == 0 && t > 90f) { timeWarn = 1; voice.Say("defensa_mitad"); }
+            if (timeWarn == 1 && t > 150f) { timeWarn = 2; voice.Say("defensa_30s", true); }
+        }
         if (seat.Seated || monitor.Infected || stage >= 3) return;
         if (stage == 0 && player.transform.position.z > corridorStartZ)
         {
             stage = 1;
             overlay.SetHint("Pasillo de oficinas: Contabilidad, Créditos, Gerencia y RR.HH. Al fondo está la puerta de la ZONA TI.");
+            voice.Say("pasillo");
+            voice.SetIdle(30f, 35f, false, "pasillo_idle_1", "pasillo_idle_2", "pasillo_idle_3");
         }
         if (stage == 1 && door && door.NearDoor)
         {
             stage = 2;
             overlay.SetHint("Puerta de la ZONA TI. Pulsa ABRIR PUERTA (E) para pasar tu tarjeta y entrar.");
+            voice.Say("puerta", true);
+            voice.SetIdle(15f, 25f, false, "puerta_idle");
         }
     }
 
@@ -91,6 +143,8 @@ public class SimulationManager : MonoBehaviour
         stage = 3;
         audioFx.Door();
         overlay.SetHint("Acceso concedido. Entra a la Zona TI y siéntate en la estación TI-01 (la que brilla).");
+        voice.Say("acceso", true);
+        voice.SetIdle(25f, 30f, false, "asiento_idle_1", "asiento_idle_2", "asiento_idle_3");
     }
 
     void OnSat()
@@ -98,7 +152,14 @@ public class SimulationManager : MonoBehaviour
         if (seatMarker) seatMarker.SetActive(false);
         monitor.Activate();
         if (monitor.Mode == SimMode.None)
+        {
             overlay.SetHint("Inicia sesión: elige MODO ATAQUE (PC sin protección) o MODO DEFENSA (con controles y guía).");
+            if (!mailScheduled)
+            {
+                voice.Say("elegir_modo", true);
+                voice.SetIdle(25f, 30f, false, "elegir_idle");
+            }
+        }
     }
 
     void OnModeSelected(SimMode mode)
@@ -106,6 +167,8 @@ public class SimulationManager : MonoBehaviour
         overlay.SetHint(mode == SimMode.Defense
             ? "Modo Defensa: tu PC tiene filtro de correo, Sandbox y MFA. Trabaja con normalidad y revisa tu correo."
             : "Es un día normal de trabajo. Explora tu escritorio y revisa tu correo.");
+        voice.Say(mode == SimMode.Defense ? "defensa_inicio" : "ataque_inicio", true);
+        voice.ClearIdle();
         if (!mailScheduled) { mailScheduled = true; StartCoroutine(MailTimer(mode)); }
     }
 
@@ -118,12 +181,16 @@ public class SimulationManager : MonoBehaviour
         overlay.SetHint(mode == SimMode.Defense
             ? "El filtro retuvo un correo en CUARENTENA. Abre el Correo y revísalo."
             : "Tienes un correo nuevo.");
+        if (mode == SimMode.Defense) { voice.Say("defensa_cuarentena"); voice.SetIdle(25f, 30f, false, "defensa_idle_1"); }
+        else { voice.Say("ataque_correo"); if (!phishSeen) voice.SetIdle(25f, 30f, false, "ataque_idle_1"); }
     }
 
     // ------------------------------------------------------------ MODO ATAQUE
     void OnMalware()
     {
         seat.CanStand = false;
+        voice.ClearIdle();
+        voice.Say("ataque_infectado", true);
         lighting.SetAlert(true);
         audioFx.Glitch();
         StartCoroutine(Aftermath());
@@ -140,6 +207,8 @@ public class SimulationManager : MonoBehaviour
         seat.Stand();
         yield return new WaitForSeconds(1.5f);
         overlay.SetHint("¡ALERTA! Sigue por las cámaras de seguridad cómo el virus salta de un equipo a otro del banco.");
+        voice.Say("ataque_llamar_ti");
+        voice.Say("ataque_propagacion");
         if (infectionMap)
         {
             StartCctv();
@@ -184,8 +253,19 @@ public class SimulationManager : MonoBehaviour
     }
 
     // ----------------------------------------------------------- REPORTE / FIN
-    void OnReported() { StartCoroutine(EndAfter(3f)); }
-    void OnTimeUp() { audioFx.Glitch(); StartCoroutine(EndAfter(3.5f)); }
+    void OnReported()
+    {
+        voice.ClearIdle(); inspectT0 = -1f;
+        voice.Say(SimSession.Mode == SimMode.Defense ? "defensa_reportado" : "ataque_reportado", true);
+        StartCoroutine(EndAfter(3f));
+    }
+
+    void OnTimeUp()
+    {
+        voice.ClearIdle(); inspectT0 = -1f;
+        voice.Say("defensa_tiempo", true);
+        audioFx.Glitch(); StartCoroutine(EndAfter(3.5f));
+    }
 
     IEnumerator EndAfter(float delay)
     {
@@ -206,6 +286,8 @@ public class SimulationManager : MonoBehaviour
         if (ended) return;
         ended = true;
         SimSession.Finish();
+        voice.ClearIdle();
+        if (SimSession.Infected) voice.Say("final_infectado");
         bool defense = SimSession.Mode == SimMode.Defense;
         string time = SimSession.Format(SimSession.Elapsed);
         string signals = defense ? $"{SimSession.SignalsFound} / 3" : (SimSession.Reported ? "Detectado sin ayuda" : "0 / 3");

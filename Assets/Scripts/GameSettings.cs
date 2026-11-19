@@ -10,6 +10,7 @@ public static class GameSettings
     public static float Sensitivity = 1f;     // 0.5..2 (multiplicador)
     public static int Quality = 2;            // 0 baja, 1 media, 2 alta
     public static bool ShowHints = true;
+    public static bool VoiceGuide = true;      // asistente de voz + subtítulos
     public static bool Fullscreen = true;
 
     public static void Load()
@@ -18,6 +19,7 @@ public static class GameSettings
         Sensitivity = PlayerPrefs.GetFloat("cs_sens", 1f);
         Quality = PlayerPrefs.GetInt("cs_quality", Application.isMobilePlatform ? 1 : 2);
         ShowHints = PlayerPrefs.GetInt("cs_hints", 1) == 1;
+        VoiceGuide = PlayerPrefs.GetInt("cs_voice", 1) == 1;
         Fullscreen = PlayerPrefs.GetInt("cs_full", Screen.fullScreen ? 1 : 0) == 1;
     }
 
@@ -27,6 +29,7 @@ public static class GameSettings
         PlayerPrefs.SetFloat("cs_sens", Sensitivity);
         PlayerPrefs.SetInt("cs_quality", Quality);
         PlayerPrefs.SetInt("cs_hints", ShowHints ? 1 : 0);
+        PlayerPrefs.SetInt("cs_voice", VoiceGuide ? 1 : 0);
         PlayerPrefs.SetInt("cs_full", Fullscreen ? 1 : 0);
         PlayerPrefs.Save();
     }
@@ -34,7 +37,7 @@ public static class GameSettings
     public static void ResetDefaults()
     {
         Volume = 0.8f; Sensitivity = 1f; Quality = Application.isMobilePlatform ? 1 : 2;
-        ShowHints = true; Fullscreen = true;
+        ShowHints = true; VoiceGuide = true; Fullscreen = true;
     }
 
     public static void Apply(PlayerController player, OverlayUI overlay)

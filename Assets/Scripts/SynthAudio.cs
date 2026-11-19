@@ -23,6 +23,8 @@ public class SynthAudio : MonoBehaviour
     public void Glitch() { fx.PlayOneShot(noise, 0.7f); }
     public void StartAlarm() { loop.clip = siren; loop.Play(); }
     public void StopAlarm() { loop.Stop(); }
+    /// Baja la sirena mientras habla la asistente.
+    public void DuckAlarm(bool duck) { loop.volume = Mathf.MoveTowards(loop.volume, duck ? 0.15f : 0.5f, Time.deltaTime * 1.5f); }
 
     static AudioClip Tone(float[] freqs, float dur)
     {

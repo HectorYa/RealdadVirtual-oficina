@@ -11,7 +11,9 @@ using UnityEngine.UI;
 /// acerca de y menú de pausa (ESC o botón II). Toda la interfaz se construye por código.
 public class GameMenu : MonoBehaviour
 {
-    public static bool SkipMenuOnce;     // "Reiniciar simulación" vuelve a cargar la escena sin pasar por el menú
+    public static bool SkipMenuOnce;
+    /// true cuando el jugador ya está en la simulación (fuera del menú principal).
+    public static bool IsPlaying { get; private set; }     // "Reiniciar simulación" vuelve a cargar la escena sin pasar por el menú
 
     public PlayerController player;
     public OverlayUI overlay;
@@ -68,7 +70,7 @@ public class GameMenu : MonoBehaviour
     Slider volSlider, sensSlider;
     TextMeshProUGUI volValue, sensValue;
     Image[] qualityBtns; TextMeshProUGUI[] qualityLbl;
-    ToggleSwitch hintsToggle, fullToggle;
+    ToggleSwitch hintsToggle, voiceToggle, fullToggle;
 
     // ================================================================= CICLO
     void Awake()
@@ -131,6 +133,7 @@ public class GameMenu : MonoBehaviour
     // ============================================================== ESTADOS
     void EnterMenu()
     {
+        IsPlaying = false;
         state = State.Menu;
         MobileInput.Blocked = true;
         if (overlay) overlay.SetVisible(false);
@@ -152,7 +155,7 @@ public class GameMenu : MonoBehaviour
 
     void EnterPlaying()
     {
-        state = State.Playing;
+        state = State.Playing; IsPlaying = true;
         MobileInput.Blocked = false;
         MobileInput.Stick = Vector2.zero; MobileInput.LookAccum = Vector2.zero;
         if (shotsCo != null) StopCoroutine(shotsCo);
@@ -549,7 +552,7 @@ public class GameMenu : MonoBehaviour
     // ----------------------------------------------------------- CONFIGURACIÓN
     RectTransform BuildSettingsCard(Transform p)
     {
-        var c = Card(p, "SettingsCard", MR, new Vector2(-120, 10), new Vector2(780, 760));
+        var c = Card(p, "SettingsCard", MR, new Vector2(-120, 10), new Vector2(780, 850));
         CardHeader(c, "03  /  PREFERENCIAS", "CONFIGURACIÓN");
         float y = -190;
         void Row(string label, string hint)
@@ -585,6 +588,10 @@ public class GameMenu : MonoBehaviour
 
         Row("Guía en pantalla", "Mensajes que indican qué hacer");
         hintsToggle = MakeToggle(c, new Vector2(-56, y), v => { GameSettings.ShowHints = v; if (overlay) overlay.ShowHints = v; });
+        y -= 92;
+
+        Row("Asistente de voz", "Voz guía por megáfono y subtítulos");
+        voiceToggle = MakeToggle(c, new Vector2(-56, y), v => { GameSettings.VoiceGuide = v; });
         y -= 92;
 
         if (!Application.isMobilePlatform)
@@ -645,6 +652,7 @@ public class GameMenu : MonoBehaviour
             qualityLbl[i].color = on ? Navy : Color.white;
         }
         hintsToggle.Set(GameSettings.ShowHints, false);
+        voiceToggle.Set(GameSettings.VoiceGuide, false);
         if (fullToggle) fullToggle.Set(GameSettings.Fullscreen, false);
     }
 

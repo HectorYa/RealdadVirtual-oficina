@@ -18,6 +18,7 @@ public class MonitorUI : MonoBehaviour
     public event Action<SimMode> OnModeSelected;
     public event Action OnMailDelivered, OnInspectionStarted, OnAllSignalsFound, OnMalwareExecuted, OnReported, OnTimeUp;
     public event Action<int> OnSignalFound;
+    public event Action OnPhishOpened, OnThreatBlocked;   // para el asistente de voz
 
     public bool Infected { get; private set; }
     public bool Finished { get; private set; }
@@ -697,6 +698,7 @@ public class MonitorUI : MonoBehaviour
 
     void ShowPhish(Mail m)
     {
+        OnPhishOpened?.Invoke();
         bool quarantine = m.folder == "quarantine";
         float oy = 0f;
         if (quarantine)
@@ -943,6 +945,7 @@ public class MonitorUI : MonoBehaviour
         if (Finished) return;
         if (Mode == SimMode.Defense)
         {
+            OnThreatBlocked?.Invoke();
             if (asLink) OpenBrowser(3);
             else Toast("Sandbox", "Descarga bloqueada: «" + S.fileName + "» es malicioso. El archivo se mantiene aislado.", Red, null, 8f);
             return;
